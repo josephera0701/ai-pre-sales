@@ -143,6 +143,47 @@ WebACL:
 
 ## 4. Deployment Procedures
 
+### 4.0 Staging Deployment (Quick Start)
+```bash
+# Install prerequisites (if needed)
+brew install awscli
+aws configure  # Enter your AWS credentials
+
+# Create deployment bucket
+BUCKET_NAME="aws-cost-platform-deploy-$(date +%s)"
+aws s3 mb s3://$BUCKET_NAME --region us-east-1
+
+# Package and upload Lambda functions
+cd 4-Development/src/lambda
+for dir in */; do 
+    echo "Packaging ${dir%/}..."
+    zip -r "${dir%/}.zip" "$dir" -x "*/node_modules/*" "*/package-lock.json"
+done
+
+# Upload Lambda packages
+for zip in *.zip; do
+    aws s3 cp "$zip" s3://$BUCKET_NAME/lambda/
+done
+
+# Deploy infrastructure
+aws cloudformation deploy \
+    --template-file ../infrastructure/template.yaml \
+    --stack-name aws-cost-platform-staging \
+    --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+    --parameter-overrides \
+        Environment=staging \
+        CodeBucket=$BUCKET_NAME \
+    --region us-east-1
+
+# Get staging URL
+echo "🔗 Staging URL:"
+aws cloudformation describe-stacks \
+    --stack-name aws-cost-platform-staging \
+    --region us-east-1 \
+    --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontURL`].OutputValue' \
+    --output text
+```
+
 ### 4.1 Infrastructure Deployment
 ```bash
 #!/bin/bash
