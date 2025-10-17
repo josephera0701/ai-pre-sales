@@ -1,0 +1,271 @@
+# System Architecture Diagram: AWS Cost Estimation Platform
+
+## High-Level Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           AWS Cost Estimation Platform                          │
+│                              Serverless Architecture                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│                 │    │                  │    │                 │    │                 │
+│   End Users     │    │   Sales Team     │    │  Pre-Sales      │    │   Admin Users   │
+│   (Clients)     │    │   (Primary)      │    │  Engineers      │    │   (Management)  │
+│                 │    │                  │    │                 │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │                       │
+         └───────────────────────┼───────────────────────┼───────────────────────┘
+                                 │                       │
+                                 ▼                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Frontend Layer                                     │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │   React SPA     │  │   CloudFront     │  │   S3 Static     │                │
+│  │   - Responsive  │◄─┤   - Global CDN   │◄─┤   Website       │                │
+│  │   - PWA Ready   │  │   - SSL/TLS      │  │   - Hosting     │                │
+│  │   - Real-time   │  │   - Caching      │  │   - Assets      │                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                 │
+                                 │ HTTPS/REST API
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                               API Gateway                                       │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │   REST APIs     │  │   Authentication │  │   Rate Limiting │                │
+│  │   - /auth       │  │   - Cognito      │  │   - Throttling  │                │
+│  │   - /estimations│  │   - JWT Tokens   │  │   - Quotas      │                │
+│  │   - /calculations│ │   - MFA Support  │  │   - Monitoring  │                │
+│  │   - /documents  │  │   - RBAC         │  │   - Logging     │                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                 │
+                                 │ Lambda Invocation
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            Business Logic Layer                                 │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │ Cost Calculator │  │ Excel Processor  │  │ Document Gen    │                │
+│  │ Lambda Function │  │ Lambda Function  │  │ Lambda Function │                │
+│  │ - AWS Pricing   │  │ - File Upload    │  │ - PDF Creation  │                │
+│  │ - Calculations  │  │ - Validation     │  │ - Word Export   │                │
+│  │ - Comparisons   │  │ - Data Mapping   │  │ - Excel Export  │                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+│                                                                                 │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │ User Management │  │ Audit Logger     │  │ Notification    │                │
+│  │ Lambda Function │  │ Lambda Function  │  │ Lambda Function │                │
+│  │ - Profile Mgmt  │  │ - Activity Log   │  │ - Email Alerts  │                │
+│  │ - Permissions   │  │ - Compliance     │  │ - Status Updates│                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                 │
+                                 │ Data Access
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Data Layer                                         │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │   DynamoDB      │  │   S3 Storage     │  │   Cognito       │                │
+│  │   - Estimations │  │   - Documents    │  │   - Users       │                │
+│  │   - Users       │  │   - Templates    │  │   - Auth        │                │
+│  │   - Audit Logs  │  │   - Uploads      │  │   - MFA         │                │
+│  │   - Pricing     │  │   - Backups      │  │   - Sessions    │                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                 │
+                                 │ Monitoring & Security
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        Infrastructure & Security                                │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │   CloudWatch    │  │   AWS KMS        │  │   IAM Roles     │                │
+│  │   - Metrics     │  │   - Encryption   │  │   - Permissions │                │
+│  │   - Logs        │  │   - Key Mgmt     │  │   - Policies    │                │
+│  │   - Alarms      │  │   - Compliance   │  │   - Access Ctrl │                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+│                                                                                 │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │   CloudFormation│  │   Systems Mgr    │  │   Cost Explorer │                │
+│  │   - IaC         │  │   - Parameters   │  │   - Budget      │                │
+│  │   - Deployment  │  │   - Secrets      │  │   - Alerts      │                │
+│  │   - Rollback    │  │   - Config       │  │   - Optimization│                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Component Interaction Flow
+
+### 1. User Authentication Flow
+```
+User → CloudFront → S3 (React App) → API Gateway → Cognito
+                                        ↓
+                              JWT Token Generated
+                                        ↓
+                              Token Stored in Browser
+```
+
+### 2. Cost Estimation Flow
+```
+User Input → React App → API Gateway → Cost Calculator Lambda
+                                              ↓
+                                    DynamoDB (Pricing Data)
+                                              ↓
+                                    Calculation Results
+                                              ↓
+                                    DynamoDB (Save Results)
+                                              ↓
+                                    Return to Frontend
+```
+
+### 3. Excel Upload Flow
+```
+Excel File → React App → S3 Upload → API Gateway → Excel Processor Lambda
+                                                           ↓
+                                                  Parse & Validate
+                                                           ↓
+                                                  Map to Form Data
+                                                           ↓
+                                                  DynamoDB (Save)
+                                                           ↓
+                                                  Return Mapped Data
+```
+
+### 4. Document Generation Flow
+```
+Generate Request → API Gateway → Document Generator Lambda
+                                        ↓
+                              DynamoDB (Get Estimation)
+                                        ↓
+                              Generate PDF/Word/Excel
+                                        ↓
+                              S3 (Store Document)
+                                        ↓
+                              Return Download URL
+```
+
+## Network Architecture
+
+### Security Groups and Network Flow
+```
+Internet Gateway
+       │
+       ▼
+┌─────────────────┐
+│   CloudFront    │ ◄── Global Edge Locations
+│   Distribution  │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│   API Gateway   │ ◄── Regional Endpoint
+│   (Regional)    │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│   Lambda        │ ◄── No VPC (Better Performance)
+│   Functions     │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│   DynamoDB      │ ◄── Regional Service
+│   (Regional)    │
+└─────────────────┘
+```
+
+## Data Flow Architecture
+
+### Real-time Cost Calculation
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   User Input    │───►│   Validation     │───►│   Calculation   │
+│   - Requirements│    │   - Schema Check │    │   - AWS Pricing │
+│   - Preferences │    │   - Business Rules│   │   - Algorithms  │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                                        │
+                                                        ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Results       │◄───│   Storage        │◄───│   Processing    │
+│   - Cost Summary│    │   - DynamoDB     │    │   - Optimization│
+│   - Breakdown   │    │   - Audit Trail  │    │   - Recommendations│
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+### Document Generation Pipeline
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Template      │    │   Data           │    │   Generation    │
+│   - PDF Layout  │    │   - Estimation   │    │   - Merge Data  │
+│   - Word Format │───►│   - Client Info  │───►│   - Apply Style │
+│   - Excel Schema│    │   - Calculations │    │   - Create File │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                                        │
+                                                        ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Delivery      │◄───│   Storage        │◄───│   Post-Process  │
+│   - Download URL│    │   - S3 Bucket    │    │   - Compression │
+│   - Email Link  │    │   - Lifecycle    │    │   - Validation  │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+## Deployment Architecture
+
+### Multi-Environment Setup
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Production Environment                              │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │   us-east-1     │  │   us-west-2      │  │   eu-west-1     │                │
+│  │   (Primary)     │  │   (DR/Backup)    │  │   (EU Users)    │                │
+│  │   - Full Stack  │  │   - Data Backup  │  │   - Full Stack  │                │
+│  │   - Active      │  │   - Standby      │  │   - Active      │                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Staging Environment                                │
+│  ┌─────────────────┐  ┌──────────────────┐                                     │
+│  │   us-east-1     │  │   Test Data      │                                     │
+│  │   (Staging)     │  │   - Sample Data  │                                     │
+│  │   - Full Stack  │  │   - Mock Services│                                     │
+│  │   - Testing     │  │   - Validation   │                                     │
+│  └─────────────────┘  └──────────────────┘                                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            Development Environment                              │
+│  ┌─────────────────┐  ┌──────────────────┐                                     │
+│  │   us-east-1     │  │   Dev Resources  │                                     │
+│  │   (Development) │  │   - Minimal      │                                     │
+│  │   - Basic Stack │  │   - Cost Opt     │                                     │
+│  │   - Feature Dev │  │   - Auto Cleanup │                                     │
+│  └─────────────────┘  └──────────────────┘                                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Security Architecture
+
+### Defense in Depth
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Security Layers                                   │
+│                                                                                 │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │   Edge Security │  │   API Security   │  │   Data Security │                │
+│  │   - WAF Rules   │  │   - Authentication│  │   - Encryption  │                │
+│  │   - DDoS Protect│  │   - Authorization │  │   - Access Ctrl │                │
+│  │   - Rate Limit  │  │   - Input Valid  │  │   - Audit Trail │                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+│                                                                                 │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────────┐                │
+│  │   Network Sec   │  │   App Security   │  │   Infra Security│                │
+│  │   - TLS 1.3     │  │   - Code Scan    │  │   - IAM Roles   │                │
+│  │   - HTTPS Only  │  │   - Dependency   │  │   - Least Priv  │                │
+│  │   - Cert Mgmt   │  │   - SAST/DAST    │  │   - Config Mgmt │                │
+│  └─────────────────┘  └──────────────────┘  └─────────────────┘                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+This architecture provides a comprehensive view of the AWS Cost Estimation Platform's serverless design, ensuring scalability, security, and cost-effectiveness while meeting all business requirements.

@@ -47,6 +47,9 @@ class AISDLCManager:
         
         # Create subfolders for specific phases
         os.makedirs(os.path.join(self.project_root, "3-Design/architecture-diagrams"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "3-Design/ui-flows"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "3-Design/wireframes"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "3-Design/data-interfaces"), exist_ok=True)
         os.makedirs(os.path.join(self.project_root, "4-Development/src"), exist_ok=True)
         os.makedirs(os.path.join(self.project_root, "4-Development/tests"), exist_ok=True)
         os.makedirs(os.path.join(self.project_root, "4-Development/docs"), exist_ok=True)

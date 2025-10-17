@@ -13,7 +13,7 @@ def validate_phase(project_path=".", phase_number=None):
     phase_requirements = {
         1: ["1-Planning/project-charter.md", "1-Planning/initial-timeline.md", "1-Planning/stakeholder-map.md"],
         2: ["2-Requirements/requirements-specification.md", "2-Requirements/user-stories.md", "2-Requirements/acceptance-criteria.md"],
-        3: ["3-Design/system-architecture.md", "3-Design/database-schema.md", "3-Design/api-specifications.md"],
+        3: ["3-Design/system-architecture.md", "3-Design/database-schema.md", "3-Design/api-specifications.md", "3-Design/ui-flows.md", "3-Design/wireframes.md", "3-Design/data-interfaces.md"],
         4: ["4-Development/src/", "4-Development/tests/", "4-Development/docs/"],
         5: ["5-Testing/test-plan.md", "5-Testing/test-cases.md", "5-Testing/test-reports.md"],
         6: ["6-Deployment/ci-cd-setup.md", "6-Deployment/monitoring-setup.md", "6-Deployment/deployment-guide.md"],

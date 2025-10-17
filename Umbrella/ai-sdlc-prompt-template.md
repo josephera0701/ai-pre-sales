@@ -99,10 +99,10 @@ Include security requirements and privacy considerations.
 - **Third-party Services:** [Define external integrations or mark "Not applicable"]
 - **Data Exchange:** [Define data integration needs or mark "Not applicable"]
 
-**AI Task:** Generate system architecture, API specs, database schema.
+**AI Task:** Generate system architecture, API specs, database schema, UI flows, wireframes, data interfaces.
 Apply software engineering best practices and security architecture.
 **Input:** Requirements specification, user stories, acceptance criteria
-**Output:** Technical design documents, architecture diagrams
+**Output:** Technical design documents, architecture diagrams, UI flows, wireframes, data interface specifications
 
 ==================================================
 4-DEVELOPMENT

@@ -21,8 +21,8 @@
 
 ### Phase 3: System Design
 - **Input**: Requirements specification, user stories, acceptance criteria
-- **AI Tasks**: Generate system architecture, API specs, database schema
-- **Output**: Technical design documents, architecture diagrams
+- **AI Tasks**: Generate system architecture, API specs, database schema, UI flows, wireframes, data interfaces
+- **Output**: Technical design documents, architecture diagrams, UI flows, wireframes, data interface specs
 - **Security**: Security architecture, data protection design
 - **Validation**: Design review, architecture validation
 
