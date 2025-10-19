@@ -1,0 +1,322 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Excel Processor Service - Template validation and data mapping
+
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+    Description: Deployment environment
+  
+  UserPoolId:
+    Type: String
+    Description: Cognito User Pool ID for authentication
+    Default: us-east-1_example123
+  
+  UserPoolClientId:
+    Type: String
+    Description: Cognito User Pool Client ID
+    Default: example123client
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        TEMPLATES_TABLE: !Ref ExcelTemplatesTable
+        PROCESSED_DATA_TABLE: !Ref ProcessedDataTable
+        TEMPLATES_BUCKET: !Ref TemplatesBucket
+        USER_POOL_ID: !Ref UserPoolId
+        USER_POOL_CLIENT_ID: !Ref UserPoolClientId
+
+Resources:
+  # Lambda Function
+  ExcelProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'excel-processor-service-${Environment}'
+      CodeUri: ../../../4-Development/components/excel-processor-service/
+      Handler: src/index.handler
+      Description: Excel template validation and data processing service
+      
+      Events:
+        FileUpload:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ExcelProcessorApi
+            Path: /excel/upload
+            Method: POST
+            
+        TemplateValidation:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ExcelProcessorApi
+            Path: /excel/validate
+            Method: POST
+            
+        DataProcessing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ExcelProcessorApi
+            Path: /excel/process
+            Method: POST
+            
+        GetTemplates:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ExcelProcessorApi
+            Path: /excel/templates
+            Method: GET
+            
+        GetProcessedData:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ExcelProcessorApi
+            Path: /excel/processed/{id}
+            Method: GET
+            
+        GetHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ExcelProcessorApi
+            Path: /excel/history
+            Method: GET
+      
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExcelTemplatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProcessedDataTable
+        - S3CrudPolicy:
+            BucketName: !Ref TemplatesBucket
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+
+  # API Gateway
+  ExcelProcessorApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub 'excel-processor-api-${Environment}'
+      StageName: !Ref Environment
+      Description: Excel Processor Service API
+      
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,x-user-id'"
+        AllowOrigin: "'*'"
+        
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}'
+            
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,x-user-id'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,x-user-id'"
+
+  # DynamoDB Tables
+  ExcelTemplatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'excel-templates-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      
+      AttributeDefinitions:
+        - AttributeName: templateId
+          AttributeType: S
+        - AttributeName: templateType
+          AttributeType: S
+          
+      KeySchema:
+        - AttributeName: templateId
+          KeyType: HASH
+          
+      GlobalSecondaryIndexes:
+        - IndexName: TemplateTypeIndex
+          KeySchema:
+            - AttributeName: templateType
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+            
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+        
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+        
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: excel-processor
+
+  ProcessedDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'processed-excel-data-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      
+      AttributeDefinitions:
+        - AttributeName: uploadId
+          AttributeType: S
+        - AttributeName: processId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+          
+      KeySchema:
+        - AttributeName: uploadId
+          KeyType: HASH
+          
+      GlobalSecondaryIndexes:
+        - IndexName: ProcessIdIndex
+          KeySchema:
+            - AttributeName: processId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+            
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+        
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+        
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: excel-processor
+
+  # S3 Bucket for Excel Files
+  TemplatesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'excel-templates-${Environment}-${AWS::AccountId}'
+      
+      VersioningConfiguration:
+        Status: Enabled
+        
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+          - Id: DeleteIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+              
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+        
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+              
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: excel-processor
+
+  # CloudWatch Log Group
+  ExcelProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/excel-processor-service-${Environment}'
+      RetentionInDays: 14
+
+  # CloudWatch Alarms
+  ExcelProcessorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'excel-processor-errors-${Environment}'
+      AlarmDescription: Excel Processor Service error rate alarm
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ExcelProcessorFunction
+
+  ExcelProcessorDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'excel-processor-duration-${Environment}'
+      AlarmDescription: Excel Processor Service duration alarm
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 25000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ExcelProcessorFunction
+
+Outputs:
+  ExcelProcessorFunctionArn:
+    Description: Excel Processor Service Lambda Function ARN
+    Value: !GetAtt ExcelProcessorFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ExcelProcessorFunctionArn'
+      
+  ExcelProcessorApiUrl:
+    Description: Excel Processor Service API Gateway URL
+    Value: !Sub 'https://${ExcelProcessorApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ExcelProcessorApiUrl'
+      
+  ExcelTemplatesTableName:
+    Description: Excel Templates DynamoDB Table Name
+    Value: !Ref ExcelTemplatesTable
+    Export:
+      Name: !Sub '${AWS::StackName}-ExcelTemplatesTableName'
+      
+  ProcessedDataTableName:
+    Description: Processed Data DynamoDB Table Name
+    Value: !Ref ProcessedDataTable
+    Export:
+      Name: !Sub '${AWS::StackName}-ProcessedDataTableName'
+      
+  TemplatesBucketName:
+    Description: Templates S3 Bucket Name
+    Value: !Ref TemplatesBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-TemplatesBucketName'
