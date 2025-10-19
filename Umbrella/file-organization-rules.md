@@ -1,6 +1,6 @@
-# AI-SDLC File Organization Rules
+# AI-SDLC Component-Based File Organization Rules
 
-## MANDATORY FOLDER STRUCTURE
+## MANDATORY FOLDER STRUCTURE (Component-Based Iterative Framework)
 
 ```
 project-root/
@@ -13,28 +13,39 @@ project-root/
 │   ├── requirements-specification.md
 │   ├── user-stories.md
 │   ├── acceptance-criteria.md
-│   └── traceability-matrix.md
+│   ├── traceability-matrix.md
+│   └── input/
 ├── 3-Design/
 │   ├── system-architecture.md
 │   ├── database-schema.md
 │   ├── api-specifications.md
 │   └── architecture-diagrams/
 ├── 4-Development/
-│   ├── src/
-│   ├── tests/
-│   ├── docs/
-│   └── README.md
+│   ├── component-breakdown.md
+│   └── components/
+│       ├── [component-name]/
+│       │   ├── src/
+│       │   ├── tests/
+│       │   ├── docs/
+│       │   └── package.json
+│       └── [next-component]/
 ├── 5-Testing/
-│   ├── test-plan.md
-│   ├── test-cases.md
-│   ├── test-reports.md
-│   ├── bug-reports.md
-│   └── quality-metrics.md
+│   ├── component-tests/
+│   │   └── [component-name]/
+│   │       ├── test-plan.md
+│   │       ├── test-[component-name].sh
+│   │       └── test-results-*.json
+│   ├── integration-tests/
+│   └── deployment-readiness/
 ├── 6-Deployment/
-│   ├── deployment-config/
-│   ├── ci-cd-setup.md
-│   ├── monitoring-setup.md
-│   └── deployment-guide.md
+│   ├── components/
+│   │   └── [component-name]/
+│   │       ├── template.yaml
+│   │       ├── deploy-[component-name].sh
+│   │       └── deployment-status.md
+│   └── deployed-components/
+│       └── [component-name]/
+│           └── deployment-status.md
 ├── 7-Maintenance/
 │   ├── performance-reports.md
 │   ├── user-feedback.md
@@ -45,75 +56,60 @@ project-root/
 └── SESSION-STATUS.md
 ```
 
-## FILE PLACEMENT RULES
+## COMPONENT-BASED ORGANIZATION RULES
 
-### Phase 1 - Planning Files:
-- **Folder:** `1-Planning/`
-- **Files:** project-charter.md, initial-timeline.md, stakeholder-map.md
+### Phase 1-3: Traditional Structure
+- **Phases 1-3** follow traditional single-phase completion
+- All files placed directly in phase folders
+- Cross-phase references using relative paths
 
-### Phase 2 - Requirements Files:
-- **Folder:** `2-Requirements/`
-- **Files:** requirements-specification.md, user-stories.md, acceptance-criteria.md
+### Phase 4-6: Component-Based Iterative Structure
+- **Each component** goes through its own Phase 4→5→6 cycle
+- **Independent development** allows parallel component work
+- **Component isolation** enables focused testing and deployment
 
-### Phase 3 - Design Files:
-- **Folder:** `3-Design/`
-- **Files:** system-architecture.md, database-schema.md, api-specifications.md, ui-flows.md, wireframes.md, data-interfaces.md
-- **Subfolders:** 
-  - `architecture-diagrams/` for system diagrams
-  - `ui-flows/` for user journey maps and flow diagrams
-  - `wireframes/` for UI mockups and wireframes
-  - `data-interfaces/` for data format specifications
+## COMPONENT LIFECYCLE RULES
 
-### Phase 4 - Development Files:
-- **Folder:** `4-Development/`
-- **Subfolders:** `src/` (source code), `tests/` (unit tests), `docs/` (code documentation)
+### Component Development Flow:
+1. **Create component folder** in `4-Development/components/[component-name]/`
+2. **Implement source code** in `src/` subfolder
+3. **Create unit tests** in `tests/` subfolder
+4. **Document component** in `docs/` subfolder
+5. **Move to testing phase** - create `5-Testing/component-tests/[component-name]/`
+6. **Execute comprehensive tests** and generate results
+7. **Move to deployment phase** - create `6-Deployment/components/[component-name]/`
+8. **Deploy to staging/production** and track status
 
-### Phase 5 - Testing Files:
-- **Folder:** `5-Testing/`
-- **Files:** test-plan.md, test-cases.md, test-reports.md, bug-reports.md, quality-metrics.md
+### Component Independence:
+- **Each component** can be at different phases simultaneously
+- **No cross-component dependencies** in file structure
+- **Independent testing** and deployment cycles
+- **Parallel development** of multiple components
 
-### Phase 6 - Deployment Files:
-- **Folder:** `6-Deployment/`
-- **Files:** ci-cd-setup.md, monitoring-setup.md, deployment-guide.md
-- **Subfolder:** `deployment-config/` for configuration files
+## FILE NAMING CONVENTIONS
 
-### Phase 7 - Maintenance Files:
-- **Folder:** `7-Maintenance/`
-- **Files:** performance-reports.md, user-feedback.md, enhancement-requests.md, maintenance-log.md
+### Component Files:
+- **Component folders:** `kebab-case` (e.g., `user-management-service`)
+- **Source files:** `index.js` (main entry point)
+- **Test files:** `[component-name].test.js`
+- **Documentation:** `README.md`
+- **Scripts:** `test-[component-name].sh`, `deploy-[component-name].sh`
 
-## FOLDER CREATION RULES
-
-### Before Starting Each Phase:
-1. **Check if phase folder exists**
-2. **Create folder if missing:** `mkdir [phase-folder]`
-3. **Verify folder permissions**
-4. **Create required subfolders if specified**
-
-### File Naming Conventions:
-- Use lowercase with hyphens: `file-name.md`
-- Include phase prefix for clarity: `phase1-project-charter.md` (if needed)
-- Use descriptive names: `user-stories.md` not `stories.md`
-- Date stamp for reports: `test-report-2024-01-15.md`
-
-## CROSS-PHASE FILE REFERENCES
-
-### When Referencing Files from Other Phases:
-- Use relative paths: `../2-Requirements/user-stories.md`
-- Always verify file exists before referencing
-- Include phase number in reference for clarity
-- Update SESSION-STATUS.md with file dependencies
-
-### File Movement Rules:
-- **Never move files between phase folders**
-- **Copy files if needed in multiple phases**
-- **Create symbolic links for shared resources**
-- **Document all file relationships**
+### Status Files:
+- **Test results:** `test-results-YYYYMMDD-HHMMSS.json`
+- **Deployment status:** `deployment-status.md`
+- **Component plans:** `test-plan.md`
 
 ## VALIDATION CHECKLIST
 
-### Before Completing Each Phase:
-1. All required files are in correct phase folder
-2. File naming follows conventions
-3. No files are misplaced in wrong folders
-4. All cross-references are valid
-5. SESSION-STATUS.md reflects current file structure
+### Component Structure Validation:
+1. ✅ Component has `src/`, `tests/`, `docs/` subfolders
+2. ✅ Component has proper test coverage and documentation
+3. ✅ Component testing folder exists with test plan and scripts
+4. ✅ Component deployment folder exists with templates and scripts
+5. ✅ Component status tracked in deployment-status.md
+
+### Cross-Phase References:
+- Use relative paths: `../../../4-Development/components/[component-name]/`
+- Document component dependencies in SESSION-STATUS.md
+- Maintain component traceability across phases

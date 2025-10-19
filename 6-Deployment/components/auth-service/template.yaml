@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Authentication Service Component - Minimal Deployment
+
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+
+Resources:
+  # Lambda Execution Role
+  AuthServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # Lambda Function
+  AuthServiceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'auth-service-${Environment}'
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt AuthServiceRole.Arn
+      Timeout: 10
+      MemorySize: 256
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              statusCode: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              },
+              body: JSON.stringify({
+                success: true,
+                message: 'Authentication Service deployed successfully',
+                timestamp: new Date().toISOString(),
+                environment: process.env.ENVIRONMENT || 'staging'
+              })
+            };
+          };
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+
+Outputs:
+  LambdaFunctionArn:
+    Description: Lambda Function ARN
+    Value: !GetAtt AuthServiceFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaArn'
+      
+  LambdaFunctionName:
+    Description: Lambda Function Name
+    Value: !Ref AuthServiceFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaName'

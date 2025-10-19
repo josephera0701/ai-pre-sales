@@ -1,0 +1,298 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Cost Calculator Service - AWS Cost Estimation Platform
+
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+    Description: Deployment environment
+  
+  EstimationsTableName:
+    Type: String
+    Default: cost-estimations
+    Description: DynamoDB table for cost estimations
+  
+  PricingTableName:
+    Type: String
+    Default: aws-pricing-data
+    Description: DynamoDB table for AWS pricing data
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        ESTIMATIONS_TABLE: !Ref EstimationsTable
+        PRICING_TABLE: !Ref PricingTable
+        ENVIRONMENT: !Ref Environment
+    Tracing: Active
+
+Resources:
+  # DynamoDB Tables
+  EstimationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${EstimationsTableName}-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: estimationId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: estimationId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserTimeIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Component
+          Value: cost-calculator-service
+        - Key: Environment
+          Value: !Ref Environment
+
+  PricingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${PricingTableName}-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: service
+          AttributeType: S
+        - AttributeName: instanceType
+          AttributeType: S
+        - AttributeName: region
+          AttributeType: S
+      KeySchema:
+        - AttributeName: service
+          KeyType: HASH
+        - AttributeName: instanceType
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: RegionIndex
+          KeySchema:
+            - AttributeName: region
+              KeyType: HASH
+            - AttributeName: service
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Component
+          Value: cost-calculator-service
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Lambda Function
+  CostCalculatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "cost-calculator-service-${Environment}"
+      CodeUri: ../../../4-Development/components/cost-calculator-service/src/
+      Handler: index.handler
+      Description: Cost Calculator Service for AWS Cost Estimation Platform
+      Environment:
+        Variables:
+          ESTIMATIONS_TABLE: !Ref EstimationsTable
+          PRICING_TABLE: !Ref PricingTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EstimationsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PricingTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:Scan
+              Resource:
+                - !Sub "${EstimationsTable}/index/*"
+                - !Sub "${PricingTable}/index/*"
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/cost-calculator-service-${Environment}:*"
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+              Resource: "*"
+      Events:
+        CalculateCost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CostCalculatorApi
+            Path: /calculations/cost
+            Method: POST
+        CompareConfigurations:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CostCalculatorApi
+            Path: /calculations/compare
+            Method: POST
+        GetPricingData:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CostCalculatorApi
+            Path: /calculations/pricing-data
+            Method: GET
+        GetCalculationHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CostCalculatorApi
+            Path: /calculations/history
+            Method: GET
+        GetCalculation:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CostCalculatorApi
+            Path: /calculations/{id}
+            Method: GET
+      ReservedConcurrencyConfig:
+        ReservedConcurrency: 10
+      Tags:
+        Component: cost-calculator-service
+        Environment: !Ref Environment
+
+  # API Gateway
+  CostCalculatorApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "cost-calculator-api-${Environment}"
+      StageName: !Ref Environment
+      Description: Cost Calculator Service API
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-User-Id,X-User-Email,X-User-Role'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: NONE
+      TracingEnabled: true
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+          MetricsEnabled: true
+          ThrottlingRateLimit: 100
+          ThrottlingBurstLimit: 200
+      Tags:
+        Component: cost-calculator-service
+        Environment: !Ref Environment
+
+  # CloudWatch Log Group
+  CostCalculatorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/cost-calculator-service-${Environment}"
+      RetentionInDays: 14
+      Tags:
+        - Key: Component
+          Value: cost-calculator-service
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudWatch Alarms
+  CostCalculatorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "cost-calculator-service-errors-${Environment}"
+      AlarmDescription: "Cost Calculator Service Error Rate"
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CostCalculatorFunction
+      TreatMissingData: notBreaching
+
+  CostCalculatorDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "cost-calculator-service-duration-${Environment}"
+      AlarmDescription: "Cost Calculator Service Duration"
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 25000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CostCalculatorFunction
+      TreatMissingData: notBreaching
+
+  CostCalculatorThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "cost-calculator-service-throttles-${Environment}"
+      AlarmDescription: "Cost Calculator Service Throttles"
+      MetricName: Throttles
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CostCalculatorFunction
+      TreatMissingData: notBreaching
+
+Outputs:
+  CostCalculatorApiUrl:
+    Description: "Cost Calculator Service API Gateway URL"
+    Value: !Sub "https://${CostCalculatorApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
+
+  CostCalculatorFunctionArn:
+    Description: "Cost Calculator Service Lambda Function ARN"
+    Value: !GetAtt CostCalculatorFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-FunctionArn"
+
+  EstimationsTableName:
+    Description: "Estimations DynamoDB Table Name"
+    Value: !Ref EstimationsTable
+    Export:
+      Name: !Sub "${AWS::StackName}-EstimationsTable"
+
+  PricingTableName:
+    Description: "Pricing Data DynamoDB Table Name"
+    Value: !Ref PricingTable
+    Export:
+      Name: !Sub "${AWS::StackName}-PricingTable"

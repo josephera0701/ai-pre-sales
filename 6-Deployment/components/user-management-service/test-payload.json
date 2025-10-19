@@ -1,0 +1,1 @@
+{"httpMethod":"GET","path":"/users/me","headers":{"Authorization":"Bearer test-token","x-user-id":"test-user-123","x-user-email":"test@example.com","x-user-role":"Sales"}}

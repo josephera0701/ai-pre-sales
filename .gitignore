@@ -3,3 +3,12 @@
 *.tmp
 .DS_Store
 Thumbs.db
+
+# Dependencies
+node_modules/
+*.zip
+
+# AWS
+.aws/
+*.pem
+*.key

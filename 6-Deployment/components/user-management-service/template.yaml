@@ -1,0 +1,285 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: User Management Service - AWS Cost Estimation Platform
+
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+    Description: Deployment environment
+  
+  UsersTableName:
+    Type: String
+    Default: cost-estimation-users
+    Description: DynamoDB table for user profiles
+  
+  AuditLogsTableName:
+    Type: String
+    Default: cost-estimation-audit-logs
+    Description: DynamoDB table for audit logs
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTable
+        AUDIT_LOGS_TABLE: !Ref AuditLogsTable
+        ENVIRONMENT: !Ref Environment
+    Tracing: Active
+
+Resources:
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${UsersTableName}-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+        - AttributeName: role
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: RoleIndex
+          KeySchema:
+            - AttributeName: role
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Component
+          Value: user-management-service
+        - Key: Environment
+          Value: !Ref Environment
+
+  AuditLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AuditLogsTableName}-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: logId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: logId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserTimeIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: timestamp-index
+          KeySchema:
+            - AttributeName: timestamp
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Component
+          Value: user-management-service
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Lambda Function
+  UserManagementFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "user-management-service-${Environment}"
+      CodeUri: ../../../4-Development/components/user-management-service/src/
+      Handler: index.handler
+      Description: User Management Service for AWS Cost Estimation Platform
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+          AUDIT_LOGS_TABLE: !Ref AuditLogsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:Scan
+              Resource:
+                - !Sub "${UsersTable}/index/*"
+                - !Sub "${AuditLogsTable}/index/*"
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/user-management-service-${Environment}:*"
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+              Resource: "*"
+      Events:
+        GetUserProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UserManagementApi
+            Path: /users/me
+            Method: GET
+        UpdateUserProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UserManagementApi
+            Path: /users/me
+            Method: PUT
+        GetAllUsers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UserManagementApi
+            Path: /admin/users
+            Method: GET
+        UpdateUserRole:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UserManagementApi
+            Path: /admin/users/{id}/role
+            Method: POST
+        GetAuditLogs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref UserManagementApi
+            Path: /admin/audit-logs
+            Method: GET
+      Tags:
+        Component: user-management-service
+        Environment: !Ref Environment
+
+  # API Gateway
+  UserManagementApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "user-management-api-${Environment}"
+      StageName: !Ref Environment
+      Description: User Management Service API
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-User-Id,X-User-Email,X-User-Role'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: NONE
+      TracingEnabled: true
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+          MetricsEnabled: true
+      Tags:
+        Component: user-management-service
+        Environment: !Ref Environment
+
+  # CloudWatch Log Group
+  UserManagementLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/user-management-service-${Environment}"
+      RetentionInDays: 14
+      Tags:
+        - Key: Component
+          Value: user-management-service
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudWatch Alarms
+  UserManagementErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "user-management-service-errors-${Environment}"
+      AlarmDescription: "User Management Service Error Rate"
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref UserManagementFunction
+      TreatMissingData: notBreaching
+
+  UserManagementDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "user-management-service-duration-${Environment}"
+      AlarmDescription: "User Management Service Duration"
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref UserManagementFunction
+      TreatMissingData: notBreaching
+
+Outputs:
+  UserManagementApiUrl:
+    Description: "User Management Service API Gateway URL"
+    Value: !Sub "https://${UserManagementApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
+
+  UserManagementFunctionArn:
+    Description: "User Management Service Lambda Function ARN"
+    Value: !GetAtt UserManagementFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-FunctionArn"
+
+  UsersTableName:
+    Description: "Users DynamoDB Table Name"
+    Value: !Ref UsersTable
+    Export:
+      Name: !Sub "${AWS::StackName}-UsersTable"
+
+  AuditLogsTableName:
+    Description: "Audit Logs DynamoDB Table Name"
+    Value: !Ref AuditLogsTable
+    Export:
+      Name: !Sub "${AWS::StackName}-AuditLogsTable"
