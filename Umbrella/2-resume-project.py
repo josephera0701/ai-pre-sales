@@ -12,7 +12,7 @@ def resume_project(project_path="."):
     # Check if SESSION-STATUS.md exists
     status_file = os.path.join(project_path, "SESSION-STATUS.md")
     if not os.path.exists(status_file):
-        print("❌ No SESSION-STATUS.md found. Run ai_sdlc_manager.py first to setup project.")
+        print("❌ No SESSION-STATUS.md found. Run 1-start-project.py first to setup project.")
         return
     
     # Read current status
@@ -45,9 +45,10 @@ def resume_project(project_path="."):
         else:
             rules_file = "phase1-planning-rules.md"
         
-        print(f"\n🤖 Load these AI rules: Umbrella/{rules_file}")
+        print(f"\n🤖 AI rules already loaded in .amazonq/rules/{rules_file}")
         print(f"📁 Work in the current phase folder shown above")
         print(f"📝 Update SESSION-STATUS.md when you complete tasks")
+        print(f"🔍 Validate progress: python ../Umbrella/3-validate-phase.py")
     
     print(f"\n💡 To update status manually, edit: {status_file}")
 

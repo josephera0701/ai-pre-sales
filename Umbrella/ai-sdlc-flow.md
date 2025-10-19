@@ -1,81 +1,67 @@
-# AI-Driven SDLC Framework
+# AI-SDLC Framework Flow
 
-## Core Workflow (Iterative)
+## Execution Models
 
-**Planning** → **Requirements** → **Design** → **Development** → **Testing** → **Deployment** → **Maintenance**
+### Linear Model (Phases 1-3)
+**Planning** → **Requirements** → **Design**
+- Sequential execution with validation gates
+- Each phase must complete before next begins
+- Suitable for establishing project foundation
 
-*With continuous feedback loops and security integration*
+### Iterative Model (Phases 4-6)
+**Development** ⟷ **Testing** ⟷ **Deployment**
+- Components flow through phases independently
+- Multiple components in different phases simultaneously
+- Continuous integration and deployment
 
-### Phase 1: Planning & Initiation
-- **Input**: Business opportunity, project vision
-- **AI Tasks**: Feasibility analysis, risk assessment, resource estimation
-- **Output**: Project charter, initial timeline, stakeholder map
-- **Security**: Threat modeling, compliance requirements
+### Maintenance Model (Phase 7)
+**Monitoring** → **Analysis** → **Enhancement** → **Deployment**
+- Continuous improvement cycle
+- Based on production feedback and metrics
 
-### Phase 2: Requirements Analysis
-- **Input**: Project charter, initial timeline, stakeholder map, stakeholder needs
-- **AI Tasks**: Extract requirements, generate user stories, create acceptance criteria
-- **Output**: Requirements specification, user stories, acceptance criteria
-- **Security**: Security requirements, privacy considerations
-- **Validation**: Stakeholder review and approval
+## Phase Execution
 
-### Phase 3: System Design
-- **Input**: Requirements specification, user stories, acceptance criteria
-- **AI Tasks**: Generate system architecture, API specs, database schema, UI flows, wireframes, data interfaces
-- **Output**: Technical design documents, architecture diagrams, UI flows, wireframes, data interface specs
-- **Security**: Security architecture, data protection design
-- **Validation**: Design review, architecture validation
+### Phases 1-3: Linear Foundation
+1. **Planning**: Project charter, timeline, stakeholders
+2. **Requirements**: User stories, acceptance criteria, security requirements
+3. **Design**: Architecture, UI flows, wireframes, data interfaces
 
-### Phase 4: Development (Iterative)
-- **Input**: Technical design documents, architecture diagrams
-- **AI Tasks**: Code generation, scaffolding, implementation, code review
-- **Output**: Working application with unit tests
-- **Security**: Secure coding practices, vulnerability scanning
-- **Validation**: Code reviews, continuous integration
+### Phases 4-6: Iterative Development
+**Per Component Cycle:**
+- **Develop** component with tests and docs
+- **Test** component (unit, integration, security)
+- **Deploy** component to staging/production
+- **Validate** component performance
+- **Repeat** for next component
 
-### Phase 5: Testing & Quality Assurance
-- **Input**: Working application, unit tests, technical design documents
-- **AI Tasks**: Create test plan, generate test cases, run automated tests, detect bugs
-- **Output**: Test plan, test cases, test reports, bug fixes, quality metrics
-- **Security**: Security testing, penetration testing
-- **Validation**: Test coverage analysis, performance validation
+### Phase 7: Continuous Maintenance
+- Monitor production performance
+- Analyze user feedback and metrics
+- Plan and implement enhancements
+- Deploy updates using iterative model
 
-### Phase 6: Deployment & Release
-- **Input**: Tested application, test reports, quality metrics
-- **AI Tasks**: Configure CI/CD, deploy, monitor
-- **Output**: Production deployment, monitoring setup
-- **Security**: Security monitoring, access controls
-- **Validation**: Deployment verification, rollback procedures
+## Quick Start Commands
 
-### Phase 7: Maintenance & Evolution
-- **Input**: Production deployment, monitoring setup, user feedback
-- **AI Tasks**: Monitor performance, analyze issues, suggest improvements
-- **Output**: Updates, patches, enhancements
-- **Security**: Security updates, threat monitoring
-- **Validation**: Impact assessment, change management
+```bash
+# Initialize project
+python Umbrella/1-start-project.py
 
-## Implementation Approaches
+# Check progress
+python Umbrella/2-resume-project.py
 
-### Waterfall (Simple Projects)
-Execute phases sequentially with validation gates
+# Validate phase completion
+python Umbrella/3-validate-phase.py
 
-### Agile (Complex Projects)
-Iterate through phases in 2-4 week sprints with continuous feedback
+# Save session
+python Umbrella/4-pause-project.py
 
-### DevOps (Production Systems)
-Continuous integration of development, testing, and deployment
-
-## Quick Start
-
-1. **Choose Approach**: Select waterfall, agile, or DevOps based on project complexity
-2. **Initialize Planning**: Use AI to assess feasibility and create project charter
-3. **Execute Phases**: Run each phase with AI assistance and validation gates
-4. **Iterate**: Refine based on feedback and changing requirements
+# Complete project
+python Umbrella/5-end-project.py
+```
 
 ## Key Benefits
-- **Speed**: 5-10x faster development cycles
-- **Quality**: AI-driven testing, security, and code review
-- **Adaptability**: Flexible approach based on project needs
-- **Risk Mitigation**: Early validation and continuous feedback
-- **Security**: Built-in security throughout the lifecycle
-- **Maintainability**: Structured approach to long-term evolution
+- **Linear Foundation**: Solid planning and design before development
+- **Iterative Delivery**: Working features deployed incrementally
+- **Risk Reduction**: Smaller deployments, faster feedback
+- **Parallel Work**: Multiple components in development simultaneously
+- **Continuous Value**: Features available as soon as ready

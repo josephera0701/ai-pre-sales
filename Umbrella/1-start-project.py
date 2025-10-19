@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-AI-SDLC Manager - Orchestration for AI-driven development with 7-phase framework
+AI-SDLC Project Initialization - Interactive setup for AI-driven development
 """
 
 import json
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from typing import List, Dict
 from datetime import datetime
@@ -45,15 +46,18 @@ class AISDLCManager:
         for folder in self.PHASE_FOLDERS.values():
             os.makedirs(os.path.join(self.project_root, folder), exist_ok=True)
         
-        # Create subfolders for specific phases
+        # Create subfolders for iterative phases
         os.makedirs(os.path.join(self.project_root, "3-Design/architecture-diagrams"), exist_ok=True)
         os.makedirs(os.path.join(self.project_root, "3-Design/ui-flows"), exist_ok=True)
         os.makedirs(os.path.join(self.project_root, "3-Design/wireframes"), exist_ok=True)
         os.makedirs(os.path.join(self.project_root, "3-Design/data-interfaces"), exist_ok=True)
-        os.makedirs(os.path.join(self.project_root, "4-Development/src"), exist_ok=True)
-        os.makedirs(os.path.join(self.project_root, "4-Development/tests"), exist_ok=True)
-        os.makedirs(os.path.join(self.project_root, "4-Development/docs"), exist_ok=True)
-        os.makedirs(os.path.join(self.project_root, "6-Deployment/deployment-config"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "4-Development/components"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "4-Development/shared"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "4-Development/integration"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "5-Testing/component-tests"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "5-Testing/integration-tests"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "6-Deployment/deployed-components"), exist_ok=True)
+        os.makedirs(os.path.join(self.project_root, "6-Deployment/monitoring"), exist_ok=True)
     
     def start_project(self) -> Dict:
         """Initialize AI-driven project"""
@@ -183,7 +187,8 @@ class AISDLCManager:
                 "phase6-deployment-rules.md",
                 "phase7-maintenance-rules.md",
                 "context-management-rules.md",
-                "file-organization-rules.md"
+                "file-organization-rules.md",
+                "iterative-development-rules.md"
             ]
             
             copied_files = 0
@@ -192,50 +197,96 @@ class AISDLCManager:
                 dest_path = os.path.join(amazonq_rules_dir, rule_file)
                 
                 if os.path.exists(source_path):
-                    with open(source_path, 'r') as src:
-                        content = src.read()
-                    with open(dest_path, 'w') as dst:
-                        dst.write(content)
+                    with open(source_path, 'r') as src, open(dest_path, 'w') as dst:
+                        dst.write(src.read())
                     copied_files += 1
             
-            return f"AI rules loaded: {copied_files} files copied to .amazonq/rules/"
-            
+            return f"AI rules loaded: {copied_files}/{len(rule_files)} files copied to .amazonq/rules/"
         except Exception as e:
-            return f"Failed to setup AI rules: {str(e)}"
+            return f"AI rules setup failed: {str(e)}"
 
-# Example usage
+def get_project_config() -> ProjectConfig:
+    """Interactive project configuration"""
+    print("🚀 AI-SDLC Project Initialization")
+    print("=" * 40)
+    
+    # Project name
+    while True:
+        name = input("\n📝 Project name: ").strip()
+        if name and name.replace('-', '').replace('_', '').isalnum():
+            break
+        print("❌ Please enter a valid project name (alphanumeric, hyphens, underscores only)")
+    
+    # Project description
+    description = input("📄 Project description: ").strip()
+    if not description:
+        description = f"{name} application"
+    
+    # Tech stack
+    print("\n🛠️  Technology Stack (press Enter when done):")
+    print("Examples: Python, JavaScript, React, Node.js, PostgreSQL, Docker")
+    tech_stack = []
+    while True:
+        tech = input(f"Tech {len(tech_stack) + 1} (or Enter to finish): ").strip()
+        if not tech:
+            break
+        tech_stack.append(tech)
+    
+    if not tech_stack:
+        tech_stack = ["Python"]  # Default
+        print(f"Using default tech stack: {tech_stack}")
+    
+    # AI tools preference
+    print("\n🤖 AI Tools Configuration:")
+    ai_assistant = input("Primary AI assistant (default: amazon-q): ").strip() or "amazon-q"
+    code_review = input("Code review tool (default: automated): ").strip() or "automated"
+    
+    ai_tools = {
+        "assistant": ai_assistant,
+        "code_review": code_review
+    }
+    
+    return ProjectConfig(name, description, tech_stack, ai_tools)
+
+def main():
+    """Main execution function"""
+    try:
+        # Get project configuration interactively
+        config = get_project_config()
+        
+        # Determine project root
+        project_root = f"./{config.name}"
+        if os.path.exists(project_root):
+            overwrite = input(f"\n⚠️  Directory '{config.name}' exists. Overwrite? (y/N): ").strip().lower()
+            if overwrite != 'y':
+                print("❌ Project initialization cancelled")
+                return
+        
+        # Initialize project
+        print(f"\n🏗️  Initializing project '{config.name}'...")
+        manager = AISDLCManager(config, project_root)
+        result = manager.start_project()
+        
+        # Display results
+        print("\n✅ Project initialized successfully!")
+        print(f"📁 Project folder: {project_root}")
+        print(f"📋 Current phase: {result['phase'].title()}")
+        print(f"🔧 Git status: {result['git_initialized']}")
+        print(f"🤖 AI rules: {result['ai_rules_loaded']}")
+        
+        print(f"\n🎯 Next steps:")
+        print(f"1. cd {config.name}")
+        print(f"2. Work in folder: {result['phase_folder']}")
+        print(f"3. Complete these actions:")
+        for action in result['actions']:
+            print(f"   - {action}")
+        print(f"4. Run: python ../Umbrella/3-validate-phase.py")
+        
+    except KeyboardInterrupt:
+        print("\n❌ Project initialization cancelled")
+    except Exception as e:
+        print(f"\n❌ Error: {str(e)}")
+        sys.exit(1)
+
 if __name__ == "__main__":
-    config = ProjectConfig(
-        name="expense-tracker-app",
-        description="Personal finance management application",
-        tech_stack=["PHP", "Laravel", "MariaDB", "JavaScript"],
-        ai_tools={"assistant": "amazon-q", "testing": "automated"}
-    )
-    
-    manager = AISDLCManager(config)
-    result = manager.start_project()
-    
-    print("🚀 AI-SDLC Project Started!")
-    print(f"📁 Project: {result['project']}")
-    print(f"📋 Current Phase: {result['phase']}")
-    print(f"🗂️  Work in: {result['phase_folder']}")
-    print(f"🔧 Git Status: {result['git_initialized']}")
-    print(f"🤖 AI Rules: {result['ai_rules_loaded']}")
-    
-    if "not found" in result['git_initialized']:
-        print("\n⚠️  Git Installation Required:")
-        print("1. Install Git: https://git-scm.com/downloads")
-        print("2. Configure Git:")
-        print('   git config --global user.name "Your Name"')
-        print('   git config --global user.email "your.email@example.com"')
-        print("3. Re-run this script to initialize Git repository")
-    
-    if "copied" in result['ai_rules_loaded']:
-        print("\n✅ Amazon Q Integration Ready!")
-        print("   - AI rules loaded into .amazonq/rules/ folder")
-        print("   - Amazon Q can now access phase-specific guidance")
-        print("   - Use @rules in Amazon Q to reference the loaded rules")
-    
-    print("\n📝 Next Actions:")
-    for action in result['actions']:
-        print(f"   - {action}")
+    main()

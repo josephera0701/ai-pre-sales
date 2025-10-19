@@ -19,7 +19,7 @@ def pause_project(project_path=".", commit_message=None):
     
     # Check if Git repository exists
     if not os.path.exists(os.path.join(project_path, ".git")):
-        print("❌ No Git repository found. Run start-project.py first.")
+        print("❌ No Git repository found. Run 1-start-project.py first.")
         return False
     
     try:
@@ -106,7 +106,7 @@ def main():
     
     if success:
         print("\n✅ Project paused successfully!")
-        print("💡 To resume: python resume-project.py")
+        print("💡 To resume: python ../Umbrella/2-resume-project.py")
     else:
         print("\n❌ Failed to pause project")
         sys.exit(1)
