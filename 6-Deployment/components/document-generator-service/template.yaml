@@ -1,0 +1,316 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Document Generator Service - PDF, Word, and Excel document generation
+
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+    Description: Deployment environment
+  
+  UserPoolId:
+    Type: String
+    Description: Cognito User Pool ID for authentication
+    Default: us-east-1_example123
+  
+  UserPoolClientId:
+    Type: String
+    Description: Cognito User Pool Client ID
+    Default: example123client
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 120
+    MemorySize: 1024
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        DOCUMENTS_TABLE: !Ref DocumentsTable
+        DOCUMENTS_BUCKET: !Ref DocumentsBucket
+        TEMPLATES_BUCKET: !Ref TemplatesBucket
+        USER_POOL_ID: !Ref UserPoolId
+        USER_POOL_CLIENT_ID: !Ref UserPoolClientId
+
+Resources:
+  # Lambda Function
+  DocumentGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'document-generator-service-${Environment}'
+      CodeUri: s3://auth-service-deploy-1760842702/document-generator-service.zip
+      Handler: src/index.handler
+      Description: Document generation service for PDF, Word, and Excel reports
+      
+      Events:
+        GenerateDocument:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DocumentGeneratorApi
+            Path: /documents/generate
+            Method: POST
+            
+        GetDocumentStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DocumentGeneratorApi
+            Path: /documents/{id}/status
+            Method: GET
+            
+        DownloadDocument:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DocumentGeneratorApi
+            Path: /documents/{id}/download
+            Method: GET
+            
+        GetDocuments:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DocumentGeneratorApi
+            Path: /documents
+            Method: GET
+            
+        GetTemplates:
+          Type: Api
+          Properties:
+            RestApiId: !Ref DocumentGeneratorApi
+            Path: /documents/templates
+            Method: GET
+      
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DocumentsTable
+        - S3CrudPolicy:
+            BucketName: !Ref DocumentsBucket
+        - S3ReadPolicy:
+            BucketName: !Ref TemplatesBucket
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+
+  # API Gateway
+  DocumentGeneratorApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub 'document-generator-api-${Environment}'
+      StageName: !Ref Environment
+      Description: Document Generator Service API
+      
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,x-user-id'"
+        AllowOrigin: "'*'"
+        
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}'
+            
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,x-user-id'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,x-user-id'"
+
+  # DynamoDB Table
+  DocumentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'generated-documents-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      
+      AttributeDefinitions:
+        - AttributeName: documentId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+          
+      KeySchema:
+        - AttributeName: documentId
+          KeyType: HASH
+          
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+            
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+        
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+        
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: document-generator
+
+  # S3 Bucket for Generated Documents
+  DocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'generated-documents-${Environment}-${AWS::AccountId}'
+      
+      VersioningConfiguration:
+        Status: Enabled
+        
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldDocuments
+            Status: Enabled
+            ExpirationInDays: 90
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+          - Id: DeleteIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+              
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+        
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+              
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: document-generator
+
+  # S3 Bucket for Document Templates
+  TemplatesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'document-templates-${Environment}-${AWS::AccountId}'
+      
+      VersioningConfiguration:
+        Status: Enabled
+        
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+        
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+              
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: document-generator
+
+  # CloudWatch Log Group
+  DocumentGeneratorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/document-generator-service-${Environment}'
+      RetentionInDays: 14
+
+  # CloudWatch Alarms
+  DocumentGeneratorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'document-generator-errors-${Environment}'
+      AlarmDescription: Document Generator Service error rate alarm
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DocumentGeneratorFunction
+
+  DocumentGeneratorDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'document-generator-duration-${Environment}'
+      AlarmDescription: Document Generator Service duration alarm
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 100000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DocumentGeneratorFunction
+
+  DocumentGeneratorMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'document-generator-memory-${Environment}'
+      AlarmDescription: Document Generator Service memory usage alarm
+      MetricName: MemoryUtilization
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 90
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DocumentGeneratorFunction
+
+Outputs:
+  DocumentGeneratorFunctionArn:
+    Description: Document Generator Service Lambda Function ARN
+    Value: !GetAtt DocumentGeneratorFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DocumentGeneratorFunctionArn'
+      
+  DocumentGeneratorApiUrl:
+    Description: Document Generator Service API Gateway URL
+    Value: !Sub 'https://${DocumentGeneratorApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-DocumentGeneratorApiUrl'
+      
+  DocumentsTableName:
+    Description: Documents DynamoDB Table Name
+    Value: !Ref DocumentsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-DocumentsTableName'
+      
+  DocumentsBucketName:
+    Description: Documents S3 Bucket Name
+    Value: !Ref DocumentsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-DocumentsBucketName'
+      
+  TemplatesBucketName:
+    Description: Templates S3 Bucket Name
+    Value: !Ref TemplatesBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-TemplatesBucketName'
