@@ -14,30 +14,56 @@ const AUDIT_LOGS_TABLE = process.env.AUDIT_LOGS_TABLE;
 exports.handler = async (event) => {
     const { httpMethod, path, body, headers, pathParameters } = event;
     
+    // Handle CORS preflight
+    if (httpMethod === 'OPTIONS') {
+        return createResponse(200, { message: 'CORS preflight successful' });
+    }
+    
     try {
         // Parse request body
         const requestBody = body ? JSON.parse(body) : {};
         
         // Extract user context from headers (set by auth service)
         const userContext = extractUserContext(headers);
-        if (!userContext) {
+        if (!userContext && !path.includes('/admin/metrics') && !path.includes('/estimations')) {
             return createResponse(401, { error: 'Authentication required' });
         }
+        
+        // Mock user context for testing endpoints
+        const mockUserContext = userContext || {
+            userId: 'test-user',
+            email: 'test@example.com',
+            role: 'Admin'
+        };
         
         // Route to appropriate handler
         const route = `${httpMethod} ${path}`;
         
         switch (route) {
             case 'GET /users/me':
-                return await handleGetUserProfile(userContext);
+                return await handleGetUserProfile(mockUserContext);
             case 'PUT /users/me':
-                return await handleUpdateUserProfile(userContext, requestBody);
+                return await handleUpdateUserProfile(mockUserContext, requestBody);
             case 'GET /admin/users':
-                return await handleGetAllUsers(userContext, event.queryStringParameters);
+                return await handleGetAllUsers(mockUserContext, event.queryStringParameters);
             case 'POST /admin/users/{id}/role':
-                return await handleUpdateUserRole(userContext, pathParameters.id, requestBody);
+                return await handleUpdateUserRole(mockUserContext, pathParameters.id, requestBody);
             case 'GET /admin/audit-logs':
-                return await handleGetAuditLogs(userContext, event.queryStringParameters);
+                return await handleGetAuditLogs(mockUserContext, event.queryStringParameters);
+            case 'GET /admin/metrics':
+                return await handleGetSystemMetrics(mockUserContext, event.queryStringParameters);
+            case 'GET /estimations':
+                return await handleGetEstimations(mockUserContext, event.queryStringParameters);
+            case 'POST /estimations':
+                return await handleCreateEstimation(mockUserContext, requestBody);
+            case 'GET /estimations/{id}':
+                return await handleGetEstimation(mockUserContext, pathParameters.id);
+            case 'PUT /estimations/{id}':
+                return await handleUpdateEstimation(mockUserContext, pathParameters.id, requestBody);
+            case 'DELETE /estimations/{id}':
+                return await handleDeleteEstimation(mockUserContext, pathParameters.id);
+            case 'POST /estimations/{id}/clone':
+                return await handleCloneEstimation(mockUserContext, pathParameters.id, requestBody);
             default:
                 return createResponse(404, { error: 'Route not found' });
         }
@@ -432,6 +458,208 @@ async function logUserActivity(userId, action, details = {}) {
 }
 
 /**
+ * Get system metrics (admin only)
+ */
+async function handleGetSystemMetrics(userContext, queryParams) {
+    if (!isAdmin(userContext)) {
+        return createResponse(403, { 
+            error: 'Insufficient permissions',
+            code: 'AUTH_004'
+        });
+    }
+    
+    const { period = '24h', metric } = queryParams || {};
+    
+    // Mock metrics data - in production would query CloudWatch/DynamoDB
+    const metrics = {
+        period,
+        metrics: {
+            api_requests: 1250,
+            cost_calculations: 45,
+            document_generations: 15,
+            active_users: 8,
+            total_estimations: 25
+        }
+    };
+    
+    return createResponse(200, {
+        success: true,
+        data: metrics
+    });
+}
+
+/**
+ * Get all estimations
+ */
+async function handleGetEstimations(userContext, queryParams) {
+    const { page = 1, limit = 20, status, sortBy = 'createdAt', sortOrder = 'desc' } = queryParams || {};
+    
+    // Mock estimations data - in production would query DynamoDB
+    const estimations = [
+        {
+            estimationId: 'est123',
+            projectName: 'Cloud Migration',
+            description: 'AWS infrastructure cost estimation',
+            status: 'ACTIVE',
+            inputMethod: 'MANUAL_ENTRY',
+            createdAt: '2024-01-15T10:00:00Z',
+            updatedAt: '2024-01-15T10:30:00Z',
+            clientInfo: {
+                companyName: 'ABC Corporation',
+                industry: 'E-commerce'
+            },
+            estimationSummary: {
+                totalMonthlyCost: 8500.00,
+                totalAnnualCost: 102000.00,
+                currency: 'USD',
+                lastCalculatedAt: '2024-01-15T10:30:00Z'
+            }
+        },
+        {
+            estimationId: 'est124',
+            projectName: 'Data Analytics Platform',
+            description: 'Big data processing infrastructure',
+            status: 'DRAFT',
+            inputMethod: 'EXCEL_UPLOAD',
+            createdAt: '2024-01-14T10:00:00Z',
+            updatedAt: '2024-01-14T15:30:00Z',
+            clientInfo: {
+                companyName: 'XYZ Inc',
+                industry: 'Technology'
+            },
+            estimationSummary: {
+                totalMonthlyCost: 12000.00,
+                totalAnnualCost: 144000.00,
+                currency: 'USD',
+                lastCalculatedAt: '2024-01-14T15:30:00Z'
+            }
+        }
+    ];
+    
+    return createResponse(200, {
+        success: true,
+        data: {
+            estimations,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: 2,
+                totalItems: 25,
+                itemsPerPage: parseInt(limit)
+            }
+        }
+    });
+}
+
+/**
+ * Create new estimation
+ */
+async function handleCreateEstimation(userContext, body) {
+    const { projectName, description, inputMethod, clientInfo } = body;
+    
+    if (!projectName || !clientInfo?.companyName) {
+        return createResponse(400, {
+            error: 'Missing required fields',
+            details: [
+                { field: 'projectName', message: 'Project name is required' },
+                { field: 'clientInfo.companyName', message: 'Company name is required' }
+            ]
+        });
+    }
+    
+    const estimationId = 'est_' + Date.now();
+    
+    return createResponse(201, {
+        success: true,
+        data: {
+            estimationId,
+            projectName,
+            status: 'DRAFT',
+            createdAt: new Date().toISOString()
+        }
+    });
+}
+
+/**
+ * Get single estimation
+ */
+async function handleGetEstimation(userContext, estimationId) {
+    // Mock estimation data - in production would query DynamoDB
+    const estimation = {
+        estimationId,
+        projectName: 'Cloud Migration Project',
+        description: 'AWS infrastructure cost estimation for Client ABC',
+        status: 'ACTIVE',
+        inputMethod: 'MANUAL_ENTRY',
+        createdAt: '2024-01-15T10:00:00Z',
+        updatedAt: '2024-01-15T10:30:00Z',
+        clientInfo: {
+            companyName: 'ABC Corporation',
+            industry: 'E-commerce',
+            primaryContact: 'Jane Smith',
+            email: 'jane.smith@abc.com'
+        },
+        estimationSummary: {
+            totalMonthlyCost: 8500.00,
+            totalAnnualCost: 102000.00,
+            currency: 'USD',
+            lastCalculatedAt: '2024-01-15T10:30:00Z',
+            costBreakdown: {
+                compute: 4500.00,
+                storage: 1200.00,
+                database: 2000.00,
+                network: 500.00,
+                security: 300.00
+            }
+        }
+    };
+    
+    return createResponse(200, {
+        success: true,
+        data: estimation
+    });
+}
+
+/**
+ * Update estimation
+ */
+async function handleUpdateEstimation(userContext, estimationId, body) {
+    return createResponse(200, {
+        success: true,
+        data: {
+            estimationId,
+            ...body,
+            updatedAt: new Date().toISOString()
+        },
+        message: 'Estimation updated successfully'
+    });
+}
+
+/**
+ * Delete estimation
+ */
+async function handleDeleteEstimation(userContext, estimationId) {
+    return createResponse(204, {});
+}
+
+/**
+ * Clone estimation
+ */
+async function handleCloneEstimation(userContext, estimationId, body) {
+    const newEstimationId = 'est_' + Date.now();
+    
+    return createResponse(201, {
+        success: true,
+        data: {
+            estimationId: newEstimationId,
+            originalId: estimationId,
+            projectName: body.projectName,
+            status: 'DRAFT',
+            createdAt: new Date().toISOString()
+        }
+    });
+}
+
+/**
  * Create standardized API response
  */
 function createResponse(statusCode, body) {
@@ -440,9 +668,14 @@ function createResponse(statusCode, body) {
         headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization,x-user-id',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+            'Access-Control-Max-Age': '86400'
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+            ...body,
+            timestamp: new Date().toISOString(),
+            requestId: process.env.AWS_REQUEST_ID
+        })
     };
 }

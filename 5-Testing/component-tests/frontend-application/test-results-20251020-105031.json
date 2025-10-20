@@ -1,0 +1,137 @@
+{
+  "testDate": "2025-01-20T10:50:31Z",
+  "component": "frontend-application",
+  "testType": "api-integration",
+  "environment": "staging",
+  "summary": {
+    "totalEndpoints": 14,
+    "workingEndpoints": 1,
+    "failingEndpoints": 13,
+    "notImplemented": 0,
+    "successRate": "7%"
+  },
+  "workingEndpoints": [
+    {
+      "endpoint": "/dashboard/stats",
+      "method": "GET",
+      "status": 200,
+      "response": {
+        "totalEstimations": 25,
+        "documentsGenerated": 15,
+        "averageCost": 1250
+      },
+      "integrationStatus": "ENABLED"
+    }
+  ],
+  "failingEndpoints": [
+    {
+      "endpoint": "/calculations/cost",
+      "method": "POST",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/calculations/compare",
+      "method": "POST",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/excel/template",
+      "method": "GET",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/excel/upload",
+      "method": "POST",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/excel/validate",
+      "method": "POST",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/excel/process",
+      "method": "POST",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/documents/generate",
+      "method": "POST",
+      "status": 401,
+      "error": "Unauthorized",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/documents/{id}/status",
+      "method": "GET",
+      "status": 401,
+      "error": "Unauthorized",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/users/me",
+      "method": "GET",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/users/me",
+      "method": "PUT",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/estimations",
+      "method": "GET",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/estimations",
+      "method": "POST",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    },
+    {
+      "endpoint": "/estimations/{id}",
+      "method": "GET",
+      "status": 403,
+      "error": "Invalid key=value pair (missing equal-sign) in Authorization header",
+      "category": "authentication"
+    }
+  ],
+  "deployment": {
+    "frontendUrl": "http://aws-cost-estimator-frontend-staging-367471965495.s3-website-us-east-1.amazonaws.com",
+    "apiGateway": "https://9u3ohhh561.execute-api.us-east-1.amazonaws.com/staging",
+    "lambdaFunctions": [
+      "auth-service-staging",
+      "user-management-service-staging",
+      "document-generator-service-staging",
+      "cost-calculator-service-staging",
+      "excel-processor-service-staging"
+    ]
+  },
+  "nextSteps": [
+    "Fix JWT token format for API Gateway authentication",
+    "Enable cost calculator endpoint for real-time calculations",
+    "Enable excel processor endpoint for file upload functionality",
+    "Enable document generator endpoint for PDF/Word generation",
+    "Enable user management endpoint for profile management"
+  ]
+}

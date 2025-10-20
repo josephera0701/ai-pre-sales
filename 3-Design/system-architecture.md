@@ -106,42 +106,54 @@ src/
 
 #### API Structure
 ```
-/api/v1/
-├── /auth
-│   ├── POST /login
-│   ├── POST /logout
-│   ├── POST /refresh
-│   └── POST /reset-password
-├── /estimations
+/{stage}/
+├── /estimations (🔒 Auth Required)
 │   ├── GET /estimations
 │   ├── POST /estimations
 │   ├── GET /estimations/{id}
 │   ├── PUT /estimations/{id}
 │   ├── DELETE /estimations/{id}
 │   └── POST /estimations/{id}/clone
+├── /users (🔒 Auth Required)
+│   ├── GET /users/me
+│   └── PUT /users/me
 ├── /excel
-│   ├── POST /excel/upload
-│   ├── POST /excel/validate
-│   └── GET /excel/template
-├── /calculations
+│   ├── GET /excel/template (🌐 Public)
+│   ├── POST /excel/upload (🔒 Auth Required)
+│   ├── POST /excel/validate (🔒 Auth Required)
+│   └── POST /excel/process (🔒 Auth Required)
+├── /calculations (🔒 Auth Required)
 │   ├── POST /calculations/cost
 │   ├── POST /calculations/compare
 │   └── GET /calculations/pricing-data
-├── /documents
+├── /documents (🔒 Auth Required)
 │   ├── POST /documents/generate
-│   ├── GET /documents/{id}
+│   ├── GET /documents/{id}/status
+│   ├── GET /documents/{id}/download
+│   ├── GET /documents
 │   └── POST /documents/export
-└── /admin
+├── /dashboard (🔒 Auth Required)
+│   └── GET /dashboard/metrics
+└── /admin (👑 Admin Only)
     ├── GET /admin/users
     ├── GET /admin/audit-logs
-    └── GET /admin/system-metrics
+    └── GET /admin/metrics
 ```
 
+**Legend:**
+- 🌐 Public: No authentication required
+- 🔒 Auth Required: Cognito JWT token required
+- 👑 Admin Only: Admin role required
+
 #### API Gateway Configuration
-- **Authentication:** Cognito User Pool Authorizer
+- **Authentication:** Cognito User Pool Authorizer for protected endpoints
+- **Public Endpoints:** OPTIONS methods and template downloads (no auth)
 - **Rate Limiting:** 1000 requests per minute per user
 - **Request Validation:** JSON schema validation
-- **CORS:** Configured for frontend domain
+- **CORS:** Configured for all origins with proper headers
+  - `Access-Control-Allow-Origin: *`
+  - `Access-Control-Allow-Headers: Content-Type,Authorization,X-User-Id,X-User-Email,X-User-Role`
+  - `Access-Control-Allow-Methods: GET,POST,PUT,DELETE,OPTIONS`
 - **Caching:** 5-minute cache for pricing data endpoints
 
 ### 2.3 Lambda Functions Architecture
@@ -385,10 +397,10 @@ aws-cost-estimation-platform/
         "RequireUppercase": true,
         "RequireLowercase": true,
         "RequireNumbers": true,
-        "RequireSymbols": true
+        "RequireSymbols": false
       }
     },
-    "MfaConfiguration": "OPTIONAL",
+    "MfaConfiguration": "OFF",
     "AccountRecoverySetting": {
       "RecoveryMechanisms": [
         { "Name": "verified_email", "Priority": 1 }
@@ -402,14 +414,55 @@ aws-cost-estimation-platform/
         "Mutable": true
       },
       {
-        "Name": "role",
+        "Name": "given_name",
         "AttributeDataType": "String",
-        "Required": true,
+        "Required": false,
+        "Mutable": true
+      },
+      {
+        "Name": "family_name",
+        "AttributeDataType": "String",
+        "Required": false,
+        "Mutable": true
+      },
+      {
+        "Name": "custom:role",
+        "AttributeDataType": "String",
+        "Required": false,
         "Mutable": true
       }
-    ]
+    ],
+    "UserPoolClient": {
+      "ClientName": "aws-cost-estimation-client",
+      "GenerateSecret": false,
+      "ExplicitAuthFlows": [
+        "ALLOW_USER_SRP_AUTH",
+        "ALLOW_REFRESH_TOKEN_AUTH"
+      ],
+      "TokenValidityUnits": {
+        "AccessToken": "hours",
+        "IdToken": "hours",
+        "RefreshToken": "days"
+      },
+      "AccessTokenValidity": 1,
+      "IdTokenValidity": 1,
+      "RefreshTokenValidity": 30
+    }
   }
 }
+```
+
+#### API Gateway Cognito Integration
+```yaml
+CognitoAuthorizer:
+  Type: AWS::ApiGateway::Authorizer
+  Properties:
+    Name: CognitoUserPoolAuthorizer
+    Type: COGNITO_USER_POOLS
+    IdentitySource: method.request.header.Authorization
+    RestApiId: !Ref ApiGateway
+    ProviderARNs:
+      - !GetAtt UserPool.Arn
 ```
 
 #### IAM Roles and Policies
@@ -461,6 +514,21 @@ aws-cost-estimation-platform/
       "Resource": "arn:aws:kms:*:*:key/*"
     }
   ]
+}
+```
+
+#### User Context Extraction
+```javascript
+// Lambda function receives user context from Cognito via API Gateway
+function extractUserContext(event) {
+  const claims = event.requestContext.authorizer.claims;
+  return {
+    userId: claims.sub,
+    email: claims.email,
+    firstName: claims.given_name,
+    lastName: claims.family_name,
+    role: claims['custom:role'] || 'Sales'
+  };
 }
 ```
 

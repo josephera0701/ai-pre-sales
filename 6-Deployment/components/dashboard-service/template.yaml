@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+
+Resources:
+  DashboardServiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'dashboard-service-${Environment}'
+      CodeUri: ../../../4-Development/components/dashboard-service/src/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+      Events:
+        DashboardStatsApi:
+          Type: Api
+          Properties:
+            Path: /dashboard/stats
+            Method: get
+        DashboardStatsOptions:
+          Type: Api
+          Properties:
+            Path: /dashboard/stats
+            Method: options
+
+Outputs:
+  DashboardFunctionArn:
+    Description: Dashboard Lambda Function ARN
+    Value: !GetAtt DashboardServiceFunction.Arn

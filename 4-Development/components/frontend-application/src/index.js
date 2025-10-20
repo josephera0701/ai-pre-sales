@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { HashRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Amplify } from 'aws-amplify';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -44,9 +44,9 @@ root.render(
   <React.StrictMode>
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <HashRouter>
           <App />
-        </BrowserRouter>
+        </HashRouter>
       </QueryClientProvider>
     </ThemeProvider>
   </React.StrictMode>

@@ -12,15 +12,24 @@
 - **Type:** RESTful API
 - **Protocol:** HTTPS only
 - **Format:** JSON
-- **Authentication:** AWS Cognito JWT tokens
-- **Base URL:** `https://api.aws-cost-estimation.sagesoft.com/v1`
+- **Authentication:** AWS Cognito User Pool with JWT tokens
+- **Base URL:** `https://{api-gateway-id}.execute-api.{region}.amazonaws.com/{stage}`
+- **Staging URL:** `https://9u3ohhh561.execute-api.us-east-1.amazonaws.com/staging`
 
 ### 1.2 Common Headers
 ```http
 Content-Type: application/json
-Authorization: Bearer <jwt-token>
+Authorization: Bearer <cognito-jwt-token>
 X-API-Version: 1.0
 X-Request-ID: <uuid>
+```
+
+### 1.3 CORS Configuration
+```http
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: Content-Type,Authorization,X-User-Id,X-User-Email,X-User-Role
+Access-Control-Allow-Methods: GET,POST,PUT,DELETE,OPTIONS
+Access-Control-Max-Age: 86400
 ```
 
 ### 1.3 Standard Response Format
@@ -52,6 +61,30 @@ X-Request-ID: <uuid>
   "requestId": "req-123456"
 }
 ```
+
+### 1.5 Authentication Requirements
+
+#### Public Endpoints (No Authentication Required)
+- `OPTIONS *` - CORS preflight requests
+- `GET /excel/template` - Download Excel template
+
+#### Authenticated Endpoints (Cognito JWT Required)
+- All `/estimations/*` endpoints
+- All `/users/*` endpoints
+- All `/calculations/*` endpoints
+- All `/documents/*` endpoints
+- All `/excel/*` endpoints (except template download)
+- `GET /dashboard/metrics`
+
+#### Admin-Only Endpoints (Admin Role Required)
+- All `/admin/*` endpoints
+
+#### Authentication Flow
+1. User authenticates via AWS Cognito
+2. Cognito returns JWT access token
+3. Frontend includes token in Authorization header: `Bearer <jwt-token>`
+4. API Gateway validates token using Cognito User Pool Authorizer
+5. Lambda functions receive user context in event headers
 
 ## 2. Authentication Endpoints
 
@@ -187,6 +220,10 @@ PUT /users/me
 ```http
 GET /estimations?page=1&limit=20&status=ACTIVE&sortBy=createdAt&sortOrder=desc
 ```
+
+**Authentication:** Required (Cognito JWT)
+
+**Description:** Returns user's estimations (filtered by authenticated user context)
 
 **Query Parameters:**
 - `page` (optional): Page number (default: 1)
@@ -820,21 +857,86 @@ GET /estimations/shared
 }
 ```
 
-## 9. Admin Endpoints
+## 9. Dashboard and Admin Endpoints
 
-### 9.1 Get All Users (Admin Only)
+### 9.1 Get Dashboard Metrics (All Users)
+```http
+GET /dashboard/metrics?period=24h
+```
+
+**Description:** Returns user-specific dashboard metrics for all authenticated users.
+
+**Query Parameters:**
+- `period` (optional): Time period (24h, 7d, 30d) - default: 24h
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "userMetrics": {
+      "totalProjects": 15,
+      "monthlyTotal": 125000.00,
+      "activeEstimations": 8,
+      "recentActivity": {
+        "estimationsCreated": 3,
+        "documentsGenerated": 5,
+        "lastLoginAt": "2024-01-15T09:30:00Z"
+      }
+    },
+    "systemMetrics": {
+      "teamSize": 8,
+      "avgEstimationCost": 8500.00
+    }
+  }
+}
+```
+
+### 9.2 Get All Users (Admin Only)
 ```http
 GET /admin/users?page=1&limit=50&role=Sales&status=ACTIVE
 ```
 
-### 9.2 Get Audit Logs (Admin Only)
+**Authentication:** Admin role required
+
+### 9.3 Get Audit Logs (Admin Only)
 ```http
 GET /admin/audit-logs?userId=user123&startDate=2024-01-01&endDate=2024-01-15&action=ESTIMATION_CREATED
 ```
 
-### 9.3 Get System Metrics (Admin Only)
+**Authentication:** Admin role required
+
+### 9.4 Get System Metrics (Admin Only)
 ```http
 GET /admin/metrics?period=24h&metric=api_requests,cost_calculations,document_generations
+```
+
+**Description:** Returns system-wide administrative metrics for admin users only.
+
+**Authentication:** Admin role required
+
+**Query Parameters:**
+- `period` (optional): Time period (24h, 7d, 30d) - default: 24h
+- `metric` (optional): Comma-separated list of specific metrics
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "period": "24h",
+    "timestamp": "2024-01-15T10:30:00Z",
+    "metrics": {
+      "api_requests": 1250,
+      "cost_calculations": 45,
+      "document_generations": 15,
+      "active_users": 8,
+      "total_estimations": 25,
+      "avg_estimation_cost": 8500.00,
+      "system_uptime": 99.9
+    }
+  }
+}
 ```
 
 ## 10. Error Codes

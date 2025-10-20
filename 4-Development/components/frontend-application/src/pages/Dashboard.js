@@ -1,22 +1,85 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { apiService } from '../services/apiService';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
-  // Mock data for testing while CORS is being fixed
-  const stats = {
-    totalProjects: 15,
-    monthlyTotal: 125000,
-    activeUsers: 8,
-    recentEstimations: [
-      { id: 1, client: 'ABC Corp Infrastructure', cost: 8500, date: 'Jan 15', status: 'completed' },
-      { id: 2, client: 'XYZ Migration Project', cost: 12300, date: 'Jan 14', status: 'completed' },
-      { id: 3, client: 'DEF Startup Platform', cost: 3200, date: 'Jan 13', status: 'draft' }
-    ]
-  };
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    monthlyTotal: 0,
+    activeUsers: 0,
+    recentEstimations: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [usingRealData, setUsingRealData] = useState(false);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Corrected design: Use /dashboard/metrics for all users, /estimations for recent list
+        const [dashboardResponse, estimationsResponse] = await Promise.all([
+          apiService.getDashboardMetrics({ period: '24h' }),
+          apiService.getEstimations({ 
+            page: 1, 
+            limit: 5, 
+            sortBy: 'createdAt', 
+            sortOrder: 'desc' 
+          })
+        ]);
+        
+        // Use dashboard metrics from API
+        const dashboardData = dashboardResponse.data;
+        const estimations = estimationsResponse.data.estimations || [];
+        
+        const realStats = {
+          totalProjects: dashboardData.userMetrics?.totalProjects || estimations.length,
+          monthlyTotal: dashboardData.userMetrics?.monthlyTotal || 0,
+          activeUsers: dashboardData.systemMetrics?.teamSize || 1,
+          recentEstimations: estimations.map(est => ({
+            id: est.estimationId,
+            client: est.clientInfo?.companyName || est.projectName,
+            cost: est.estimationSummary?.totalMonthlyCost || 0,
+            date: new Date(est.createdAt).toLocaleDateString(),
+            status: est.status?.toLowerCase() || 'draft'
+          }))
+        };
+        
+        setStats(realStats);
+        setUsingRealData(true);
+        console.log('✅ Dashboard using corrected design - dashboard metrics:', { dashboardResponse, estimationsResponse });
+        
+      } catch (error) {
+        console.error('Dashboard API failed:', error);
+        setStats({
+          totalProjects: 0,
+          monthlyTotal: 0,
+          activeUsers: 0,
+          recentEstimations: [],
+          error: 'API not responding'
+        });
+        setUsingRealData(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user?.role]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -64,7 +127,9 @@ const Dashboard = () => {
         <div className="metric-card card-hover">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Active Users</h3>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                {user?.role === 'Admin' ? 'Active Users' : 'Team Members'}
+              </h3>
               <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.activeUsers}</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center">
@@ -151,14 +216,21 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Note about mock data */}
-      <div className="card p-6 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-700">
+      {/* API Status Indicator */}
+      <div className={`card p-6 ${usingRealData 
+        ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-700'
+        : 'bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-700'
+      }`}>
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-            <span className="text-white text-sm">⚠️</span>
+          <div className={`w-8 h-8 ${usingRealData ? 'bg-green-500' : 'bg-yellow-500'} rounded-full flex items-center justify-center`}>
+            <span className="text-white text-sm">{usingRealData ? '✅' : '⚠️'}</span>
           </div>
-          <p className="text-yellow-800 dark:text-yellow-200 font-medium">
-            <strong>Development Mode:</strong> Currently showing mock data while API integration is being completed.
+          <p className={`${usingRealData ? 'text-green-800 dark:text-green-200' : 'text-yellow-800 dark:text-yellow-200'} font-medium`}>
+            <strong>{usingRealData ? 'Live Data:' : 'Development Mode:'}</strong> 
+            {usingRealData 
+              ? 'Dashboard metrics powered by real /dashboard/metrics and /estimations endpoints!' 
+              : stats.error ? 'API not responding - Backend services are currently unavailable.' : 'Loading dashboard data...'
+            }
           </p>
         </div>
       </div>
