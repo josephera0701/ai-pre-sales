@@ -1,0 +1,11 @@
+field_name,validation_type,validation_rule,error_message,required_field,dependent_field,dependency_condition
+company_name,text,length:2-100,Company name must be between 2 and 100 characters,Yes,,
+primary_contact_email,email,valid_email,Please enter a valid email address,Yes,,
+cpu_cores,number,range:1-128,CPU cores must be between 1 and 128,Yes,,
+ram_gb,number,range:1-3904,RAM must be between 1 and 3904 GB,Yes,,
+peak_utilization_percent,number,range:average_utilization_percent-100,Peak utilization must be greater than or equal to average utilization,Yes,average_utilization_percent,>=
+max_instances,number,range:min_instances-1000,Maximum instances must be greater than or equal to minimum instances,Yes,min_instances,>=
+backup_retention_days,number,range:1-2555,Backup retention must be between 1 and 2555 days,No,backup_required,Yes
+read_replicas_count,number,range:0-15,Read replicas count must be between 0 and 15,No,,
+project_timeline_months,number,range:1-60,Project timeline must be between 1 and 60 months,Yes,,
+iops_required,number,range:100-80000,IOPS must be between 100 and 80000,No,,

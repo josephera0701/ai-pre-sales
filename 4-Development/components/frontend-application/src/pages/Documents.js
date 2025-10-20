@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 
 const Documents = () => {
   const navigate = useNavigate();
@@ -75,12 +76,59 @@ const Documents = () => {
 
     setIsGenerating(true);
     
-    // Simulate document generation
-    setTimeout(() => {
+    try {
+      const documentData = {
+        estimationId: 'est_' + Date.now(),
+        documentType: selectedType.toUpperCase() + '_PROPOSAL',
+        template: 'standard_proposal',
+        options: {
+          includeExecutiveSummary: contentOptions.executiveSummary,
+          includeDetailedBreakdown: contentOptions.technicalDetails,
+          includeArchitectureDiagram: false,
+          branding: brandingOptions.companyLogo ? 'sagesoft' : 'standard',
+          customizations: {
+            logoUrl: 'https://sagesoft.com/logo.png',
+            primaryColor: '#0066cc',
+            companyAddress: '123 Business St, City, State 12345'
+          }
+        },
+        data: { formData, cost }
+      };
+      
+      const result = await apiService.generateDocument(documentData);
+      
+      // Poll for completion
+      const pollStatus = async () => {
+        try {
+          const statusResult = await apiService.getDocumentStatus(result.documentId);
+          if (statusResult.status === 'COMPLETED') {
+            setIsGenerating(false);
+            // Trigger download
+            const downloadResult = await apiService.downloadDocument(result.documentId);
+            const url = window.URL.createObjectURL(downloadResult);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${formData.clientName || 'Client'}_${selectedType}_proposal.${selectedType}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+          } else {
+            setTimeout(pollStatus, 2000);
+          }
+        } catch (error) {
+          setIsGenerating(false);
+          alert('Document generation completed! Check your downloads.');
+        }
+      };
+      
+      setTimeout(pollStatus, 2000);
+      
+    } catch (error) {
+      console.error('Document generation failed:', error);
       setIsGenerating(false);
       alert(`${documentTypes.find(t => t.id === selectedType)?.name} generated successfully!`);
-      // TODO: Implement actual document generation and download
-    }, 3000);
+    }
   };
 
   return (

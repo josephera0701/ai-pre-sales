@@ -1,19 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 
 const EstimationsList = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [estimations, setEstimations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
 
-  // Mock data
-  const estimations = [
-    { id: 1, client: 'ABC Corp Infrastructure', cost: 8500, date: '2024-01-15', status: 'completed', shared: true },
-    { id: 2, client: 'XYZ Migration Project', cost: 12300, date: '2024-01-14', status: 'completed', shared: false },
-    { id: 3, client: 'DEF Startup Platform', cost: 3200, date: '2024-01-13', status: 'draft', shared: false },
-    { id: 4, client: 'GHI Enterprise Setup', cost: 15600, date: '2024-01-12', status: 'completed', shared: true },
-    { id: 5, client: 'JKL Development Environment', cost: 2800, date: '2024-01-11', status: 'draft', shared: false },
-  ];
+  useEffect(() => {
+    fetchEstimations();
+  }, [searchTerm, filterStatus]);
+
+  const fetchEstimations = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page: 1,
+        limit: 20,
+        status: filterStatus === 'all' ? undefined : filterStatus,
+        search: searchTerm || undefined
+      };
+      const result = await apiService.getEstimations(params);
+      
+      // Transform API data to match UI expectations
+      const transformedEstimations = result.data.estimations.map(est => ({
+        id: est.estimationId,
+        client: est.projectName || est.clientInfo?.companyName || 'Unnamed Project',
+        cost: est.estimationSummary?.totalMonthlyCost || 0,
+        date: new Date(est.createdAt).toLocaleDateString(),
+        status: est.status?.toLowerCase() || 'draft',
+        shared: est.sharedWith?.length > 0 || false,
+        estimationId: est.estimationId
+      }));
+      
+      setEstimations(transformedEstimations);
+      setPagination(result.data.pagination || { currentPage: 1, totalPages: 1 });
+    } catch (error) {
+      console.error('Failed to fetch estimations:', error);
+      // Fallback to mock data
+      setEstimations([
+        { id: 1, client: 'ABC Corp Infrastructure', cost: 8500, date: '2024-01-15', status: 'completed', shared: true },
+        { id: 2, client: 'XYZ Migration Project', cost: 12300, date: '2024-01-14', status: 'completed', shared: false }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredEstimations = estimations.filter(estimation => {
     const matchesSearch = estimation.client.toLowerCase().includes(searchTerm.toLowerCase());
@@ -108,19 +143,49 @@ const EstimationsList = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <button className="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const result = await apiService.getEstimation(estimation.estimationId || estimation.id);
+                        navigate('/cost-results', { state: { formData: result.data, cost: { monthly: estimation.cost, annual: estimation.cost * 12 } } });
+                      } catch (error) {
+                        alert('Unable to load estimation details.');
+                      }
+                    }}
+                    className="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
+                  >
                     View
                   </button>
-                  <button className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 transition-colors">
+                  <button 
+                    onClick={() => navigate('/estimation', { state: { estimationId: estimation.estimationId || estimation.id } })}
+                    className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 transition-colors"
+                  >
                     Edit
                   </button>
-                  <button className="bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 transition-colors">
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const result = await apiService.cloneEstimation(estimation.estimationId || estimation.id, { projectName: `${estimation.client} (Copy)` });
+                        alert(`Estimation cloned! New ID: ${result.data.estimationId}`);
+                        fetchEstimations();
+                      } catch (error) {
+                        alert('Failed to clone estimation.');
+                      }
+                    }}
+                    className="bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 transition-colors"
+                  >
                     Clone
                   </button>
-                  <button className="bg-green-100 text-green-700 px-3 py-2 rounded text-sm hover:bg-green-200 transition-colors">
+                  <button 
+                    onClick={() => navigate('/documents', { state: { formData: { clientName: estimation.client }, cost: { monthly: estimation.cost, annual: estimation.cost * 12 } } })}
+                    className="bg-green-100 text-green-700 px-3 py-2 rounded text-sm hover:bg-green-200 transition-colors"
+                  >
                     Generate
                   </button>
-                  <button className="bg-purple-100 text-purple-700 px-3 py-2 rounded text-sm hover:bg-purple-200 transition-colors">
+                  <button 
+                    onClick={() => alert('Share functionality will be implemented')}
+                    className="bg-purple-100 text-purple-700 px-3 py-2 rounded text-sm hover:bg-purple-200 transition-colors"
+                  >
                     Share
                   </button>
                 </div>

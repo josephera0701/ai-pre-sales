@@ -1,0 +1,24 @@
+list_name,list_values,default_value,description
+industry_type,"Technology,Healthcare,Finance,Retail,Manufacturing,Education,Government,Non-Profit,Other",Technology,Industry classification for compliance and service recommendations
+company_size,"Startup,SME,Enterprise",SME,Company size affects pricing tiers and support levels
+environment_type,"Production,Staging,Development,Testing",Production,Environment type affects instance recommendations and costs
+workload_type,"Web,Database,Analytics,ML,Batch,Cache,Search",Web,Workload type determines optimal instance families
+operating_system,"Amazon Linux,Ubuntu,Windows Server,RHEL,SUSE",Amazon Linux,Operating system affects licensing costs
+architecture,"x86_64,ARM64",x86_64,Processor architecture affects instance type availability
+business_criticality,"Low,Medium,High,Critical",Medium,Criticality level affects availability and backup requirements
+scaling_type,"Manual,Auto,Scheduled,Predictive",Auto,Scaling approach affects cost optimization
+storage_purpose,"Application_Data,Database,Media,Backup,Archive,Logs",Application_Data,Storage purpose determines optimal service selection
+access_pattern,"Frequent,Infrequent,Archive,Intelligent_Tiering",Frequent,Access pattern affects storage class selection
+durability_requirement,"Standard,High,Maximum",Standard,Durability requirement affects replication strategy
+availability_requirement,"Standard,High,Maximum",Standard,Availability requirement affects Multi-AZ configuration
+backup_frequency,"Hourly,Daily,Weekly,Monthly",Daily,Backup frequency affects storage costs
+load_balancer_type,"ALB,NLB,CLB",ALB,Load balancer type affects features and costs
+ssl_certificate_type,"Single,Wildcard,Multi_Domain",Single,Certificate type affects ACM costs
+cdn_cache_behavior,"Cache_Everything,Cache_Static,Custom",Cache_Static,Cache behavior affects performance and costs
+database_purpose,"OLTP,OLAP,Data_Warehouse,Cache,Search",OLTP,Database purpose determines optimal engine selection
+engine_type,"MySQL,PostgreSQL,Oracle,SQL_Server,Aurora_MySQL,Aurora_PostgreSQL,DynamoDB,ElastiCache",MySQL,Database engine affects licensing and feature costs
+storage_type_ebs,"GP2,GP3,IO1,IO2,Magnetic",GP3,EBS storage type affects performance and costs
+compliance_frameworks,"GDPR,HIPAA,SOC2,PCI_DSS,ISO27001,FedRAMP",None,Compliance frameworks affect security service requirements
+data_classification,"Public,Internal,Confidential,Restricted",Internal,Data classification affects security controls
+aws_regions,"us-east-1,us-east-2,us-west-1,us-west-2,eu-west-1,eu-west-2,eu-central-1,ap-southeast-1,ap-southeast-2,ap-northeast-1",us-east-1,AWS regions for deployment
+budget_range,"<$10K,$10K-$50K,$50K-$100K,$100K-$500K,$500K-$1M,>$1M",$50K-$100K,Budget range for cost planning

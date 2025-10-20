@@ -43,7 +43,11 @@ exports.handler = async (event) => {
     const { httpMethod, path, body, headers, pathParameters } = event;
     const userId = headers['x-user-id'];
     
-    if (!userId) {
+    // Public endpoints that don't require authentication
+    const publicEndpoints = ['/excel/template'];
+    const isPublicEndpoint = publicEndpoints.includes(path);
+    
+    if (!userId && !isPublicEndpoint) {
       return createResponse(401, { error: 'Authentication required' });
     }
 
@@ -71,6 +75,10 @@ exports.handler = async (event) => {
     
     if (httpMethod === 'GET' && path === '/excel/history') {
       return await handleGetProcessingHistory(userId);
+    }
+    
+    if (httpMethod === 'GET' && path === '/excel/template') {
+      return await handleDownloadTemplate(); // Public endpoint - no auth required
     }
 
     return createResponse(404, { error: 'Endpoint not found' });
@@ -368,6 +376,41 @@ async function handleGetProcessingHistory(userId) {
     console.error('Get processing history error:', error);
     return createResponse(500, { 
       error: 'Failed to retrieve processing history',
+      details: error.message 
+    });
+  }
+}
+
+async function handleDownloadTemplate() {
+  try {
+    // Create simple CSV template for now (Excel generation requires more complex setup)
+    const csvContent = `Company Name,Industry,Contact Email,Project Timeline,Budget Range,Region Preference
+ABC Corporation,Technology,contact@abc.com,Q2 2024,100000-200000,us-east-1
+
+Server Name,Environment,CPU Cores,RAM (GB),OS,Instance Type,Quantity
+Web Server,Production,4,16,Linux,t3.xlarge,2
+Database Server,Production,8,32,Linux,m5.2xlarge,1
+
+Storage Type,Size (GB),IOPS,Throughput,Backup Required
+EBS gp3,500,3000,125,Yes
+S3 Standard,1000,N/A,N/A,Yes`;
+    
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="AWS_Cost_Estimation_Template.csv"',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      },
+      body: csvContent
+    };
+    
+  } catch (error) {
+    console.error('Download template error:', error);
+    return createResponse(500, { 
+      error: 'Failed to generate template',
       details: error.message 
     });
   }

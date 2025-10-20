@@ -1,0 +1,3 @@
+client_id,company_name,industry_type,company_size,primary_contact_name,primary_contact_email,primary_contact_phone,technical_contact_name,technical_contact_email,project_name,project_description,project_timeline_months,budget_range,primary_aws_region,secondary_aws_regions,compliance_requirements,business_criticality,disaster_recovery_required,multi_region_required,created_date,last_modified
+EXAMPLE-UUID-1234,Example Corp,Technology,Enterprise,John Smith,john.smith@example.com,+1-555-0123,Jane Doe,jane.doe@example.com,Cloud Migration Project,Migrate legacy applications to AWS cloud infrastructure,12,$100K-$500K,us-east-1,"us-west-2,eu-west-1","GDPR,SOC2",High,Yes,Yes,2024-01-15,2024-01-15
+,,,,,,,,,,,,,,,,,,,,,

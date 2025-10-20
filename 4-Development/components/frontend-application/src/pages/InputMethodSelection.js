@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 
 const InputMethodSelection = () => {
   const navigate = useNavigate();
@@ -12,9 +13,21 @@ const InputMethodSelection = () => {
     navigate('/estimation');
   };
 
-  const handleDownloadTemplate = () => {
-    // TODO: Implement template download
-    alert('Template download will be implemented');
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await apiService.downloadExcelTemplate();
+      const url = window.URL.createObjectURL(new Blob([response]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'AWS_Cost_Estimation_Template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Template download failed:', error);
+      alert('Failed to download template. Please try again.');
+    }
   };
 
   return (

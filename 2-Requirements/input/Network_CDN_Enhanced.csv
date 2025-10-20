@@ -1,0 +1,4 @@
+network_id,client_id,data_transfer_out_gb_monthly,data_transfer_in_gb_monthly,peak_bandwidth_mbps,concurrent_users_expected,geographic_distribution,load_balancer_count,load_balancer_type,ssl_certificate_required,ssl_certificate_type,waf_required,ddos_protection_required,cdn_required,cdn_cache_behavior,edge_locations_required,api_gateway_required,api_calls_monthly,vpn_connections_required,direct_connect_required,bandwidth_direct_connect_mbps,estimated_monthly_cost,optimization_recommendations
+NET-UUID-1234,EXAMPLE-UUID-1234,500,200,1000,5000,"us-east-1,eu-west-1",2,ALB,Yes,Single,Yes,No,Yes,Cache_Static,"us-east-1,eu-west-1",Yes,1000000,0,No,0,$425.30,Consider CloudFront for global content delivery
+NET-UUID-1235,EXAMPLE-UUID-1234,1000,100,2000,10000,"us-east-1,us-west-2,eu-west-1",1,NLB,Yes,Wildcard,Yes,Yes,Yes,Cache_Everything,"Global",No,0,2,Yes,1000,$1250.75,Direct Connect recommended for high bandwidth requirements
+,,,,,,,,,,,,,,,,,,,,,

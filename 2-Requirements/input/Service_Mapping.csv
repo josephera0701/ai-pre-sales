@@ -1,0 +1,22 @@
+requirement_type,requirement_value,suggested_aws_service,alternative_services,cost_factor,optimization_notes
+workload_type,Web,EC2 + ALB,"ECS,Fargate,Lambda",1.0,Consider containerization for better resource utilization
+workload_type,Database,RDS,"Aurora,DynamoDB,DocumentDB",1.2,Aurora offers better performance for high-throughput applications
+workload_type,Analytics,EMR,"Redshift,Athena,Glue",1.5,Choose based on data volume and query complexity
+workload_type,ML,SageMaker,"EC2 with ML AMIs,Batch",2.0,SageMaker reduces operational overhead for ML workflows
+workload_type,Batch,Batch,"EC2 Spot,Fargate",0.7,Spot instances can reduce costs by up to 90%
+storage_purpose,Application_Data,EBS GP3,"EFS,S3",1.0,GP3 offers better price-performance than GP2
+storage_purpose,Database,EBS IO2,"Aurora Storage,DynamoDB",1.3,IO2 provides consistent performance for databases
+storage_purpose,Media,S3 Standard,"EFS,EBS",0.8,S3 offers better durability and global access
+storage_purpose,Backup,S3 IA,"Glacier,Deep Archive",0.5,Lifecycle policies can further reduce costs
+storage_purpose,Archive,S3 Glacier,"Deep Archive,Tape Gateway",0.1,Deep Archive for long-term retention
+access_pattern,Frequent,S3 Standard,"EBS,EFS",1.0,Standard class for frequently accessed data
+access_pattern,Infrequent,S3 IA,"S3 One Zone-IA",0.6,One Zone-IA for non-critical infrequent access
+access_pattern,Archive,S3 Glacier,"S3 Deep Archive",0.2,Choose based on retrieval time requirements
+business_criticality,Critical,Multi-AZ + Backup,"Cross-Region Replication",1.8,Implement comprehensive DR strategy
+business_criticality,High,Multi-AZ,"Enhanced Monitoring",1.4,Enable detailed monitoring and alerting
+business_criticality,Medium,Single-AZ + Backup,"Scheduled Snapshots",1.0,Regular backups sufficient for medium criticality
+business_criticality,Low,Single-AZ,"Basic Monitoring",0.8,Minimal redundancy for low criticality workloads
+compliance_frameworks,GDPR,KMS + CloudTrail,"Config,GuardDuty",1.3,Comprehensive audit trail required
+compliance_frameworks,HIPAA,KMS + VPC,"WAF,Shield",1.5,Enhanced security controls required
+compliance_frameworks,PCI_DSS,WAF + Shield,"Inspector,Macie",1.4,Payment data protection required
+compliance_frameworks,SOC2,Config + CloudTrail,"Security Hub",1.2,Continuous compliance monitoring required

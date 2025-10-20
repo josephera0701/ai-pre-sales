@@ -1,0 +1,4 @@
+storage_id,client_id,storage_name,storage_purpose,current_size_gb,projected_growth_rate_percent,projected_size_12months_gb,access_pattern,iops_required,throughput_mbps_required,durability_requirement,availability_requirement,encryption_required,backup_required,backup_frequency,backup_retention_days,cross_region_replication,versioning_required,lifecycle_management_required,compliance_requirements,suggested_aws_service,suggested_storage_class,estimated_monthly_cost,optimization_recommendations
+STOR-UUID-1234,EXAMPLE-UUID-1234,application-data,Application_Data,1000,20,1200,Frequent,3000,250,High,High,Yes,Yes,Daily,30,No,Yes,Yes,GDPR,EBS GP3,N/A,$102.40,Consider S3 Intelligent Tiering for cost optimization
+STOR-UUID-1235,EXAMPLE-UUID-1234,backup-storage,Backup,5000,10,5500,Infrequent,1000,125,Maximum,Standard,Yes,No,N/A,0,Yes,No,Yes,GDPR,S3,Standard-IA,$275.00,Implement lifecycle policy to Glacier after 90 days
+,,,,,,,,,,,,,,,,,,,,,,,

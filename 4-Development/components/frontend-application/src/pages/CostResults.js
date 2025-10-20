@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 
 const CostResults = () => {
   const navigate = useNavigate();
@@ -200,13 +201,39 @@ const CostResults = () => {
                   📄 Generate Document
                 </button>
                 <button 
-                  onClick={() => alert('Save functionality will be implemented')}
+                  onClick={async () => {
+                    try {
+                      const estimationData = {
+                        projectName: formData.projectName || 'Cost Results',
+                        description: 'Saved from cost results',
+                        inputMethod: 'MANUAL_ENTRY',
+                        clientInfo: { companyName: formData.clientName || 'Unknown Client' },
+                        requirements: formData,
+                        estimationSummary: { totalMonthlyCost: grandTotal, totalAnnualCost: grandTotal * 12 }
+                      };
+                      const result = await apiService.createEstimation(estimationData);
+                      alert(`Estimation saved! ID: ${result.data.estimationId}`);
+                    } catch (error) {
+                      alert('Failed to save estimation. Please try again.');
+                    }
+                  }}
                   className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors"
                 >
                   💾 Save Estimation
                 </button>
                 <button 
-                  onClick={() => alert('Compare functionality will be implemented')}
+                  onClick={async () => {
+                    try {
+                      const configurations = [
+                        { name: 'Current', requirements: formData },
+                        { name: 'Optimized', requirements: { ...formData, instanceType: 't3.medium' } }
+                      ];
+                      const result = await apiService.compareConfigurations(configurations);
+                      alert(`Comparison complete! Recommended: ${result.data.recommendedConfiguration}`);
+                    } catch (error) {
+                      alert('Comparison feature temporarily unavailable.');
+                    }
+                  }}
                   className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors"
                 >
                   📊 Compare Options

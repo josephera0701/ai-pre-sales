@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 
 const CostEstimation = () => {
   const navigate = useNavigate();
@@ -18,39 +19,62 @@ const CostEstimation = () => {
     { id: 7, name: 'Review', icon: '📋' }
   ];
 
-  // Mock cost calculation
-  useEffect(() => {
-    const calculateCost = () => {
+  // Real-time cost calculation with API integration
+  const calculateRealTimeCost = useCallback(async (currentFormData) => {
+    if (!currentFormData.ec2Instances && !currentFormData.storageSize && !currentFormData.rdsInstances) {
+      setRealTimeCost({ monthly: 0, annual: 0 });
+      return;
+    }
+
+    try {
+      const requirements = {
+        compute: currentFormData.ec2Instances ? [{
+          service: 'EC2',
+          instanceType: currentFormData.instanceType || 't3.medium',
+          quantity: currentFormData.ec2Instances,
+          hoursPerMonth: 730
+        }] : [],
+        storage: currentFormData.storageSize ? [{
+          service: 'EBS',
+          storageType: currentFormData.storageType || 'gp3',
+          sizeGB: currentFormData.storageSize
+        }] : [],
+        database: currentFormData.databaseRequired === 'rds' ? [{
+          service: 'RDS',
+          instanceType: currentFormData.rdsInstanceClass || 'db.t3.micro',
+          storageGB: 100
+        }] : [],
+        network: {
+          dataTransferGB: 100,
+          requests: 1000000
+        }
+      };
+
+      const result = await apiService.calculateCost({ requirements, region: currentFormData.region || 'us-east-1' });
+      
+      if (result.data) {
+        setRealTimeCost({
+          monthly: Math.round(result.data.totalMonthlyCost || 0),
+          annual: Math.round(result.data.totalAnnualCost || 0)
+        });
+      }
+    } catch (error) {
+      console.error('Cost calculation failed:', error);
+      // Fallback to basic calculation
       let monthly = 0;
-      
-      // Basic calculations based on form data
-      if (formData.ec2Instances) {
-        const instanceCosts = {
-          't3.micro': 8.5,
-          't3.small': 17,
-          't3.medium': 34,
-          'm5.large': 70,
-          'm5.xlarge': 140
-        };
-        monthly += (formData.ec2Instances || 0) * (instanceCosts[formData.instanceType] || 0);
+      if (currentFormData.ec2Instances && currentFormData.instanceType) {
+        const instanceCosts = { 't3.micro': 8.5, 't3.small': 17, 't3.medium': 34, 'm5.large': 70, 'm5.xlarge': 140 };
+        monthly += (currentFormData.ec2Instances || 0) * (instanceCosts[currentFormData.instanceType] || 0);
       }
-      
-      if (formData.storageSize) {
-        monthly += formData.storageSize * 0.10; // $0.10 per GB
-      }
-      
-      if (formData.rdsInstances) {
-        monthly += formData.rdsInstances * 50; // Base RDS cost
-      }
-      
-      setRealTimeCost({
-        monthly: Math.round(monthly),
-        annual: Math.round(monthly * 12)
-      });
-    };
-    
-    calculateCost();
-  }, [formData]);
+      if (currentFormData.storageSize) monthly += currentFormData.storageSize * 0.10;
+      setRealTimeCost({ monthly: Math.round(monthly), annual: Math.round(monthly * 12) });
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => calculateRealTimeCost(formData), 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData, calculateRealTimeCost]);
 
   const updateFormData = (stepData) => {
     setFormData(prev => ({ ...prev, ...stepData }));
@@ -85,9 +109,28 @@ const CostEstimation = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const saveDraft = () => {
-    // TODO: Implement save draft functionality
-    alert('Draft saved successfully!');
+  const saveDraft = async () => {
+    try {
+      const estimationData = {
+        projectName: formData.projectName || 'Untitled Project',
+        description: 'Draft estimation',
+        inputMethod: 'MANUAL_ENTRY',
+        clientInfo: {
+          companyName: formData.clientName || 'Unknown Client',
+          industry: formData.industry || 'Technology',
+          primaryContact: formData.contactName || '',
+          email: formData.contactEmail || '',
+          regionPreference: [formData.region || 'us-east-1']
+        },
+        requirements: formData
+      };
+      
+      const result = await apiService.createEstimation(estimationData);
+      alert(`Draft saved successfully! Estimation ID: ${result.data.estimationId}`);
+    } catch (error) {
+      console.error('Save draft failed:', error);
+      alert('Failed to save draft. Please try again.');
+    }
   };
 
   const renderStepContent = () => {
