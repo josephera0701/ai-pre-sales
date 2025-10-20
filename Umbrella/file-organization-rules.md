@@ -34,7 +34,8 @@ project-root/
 │   │   └── [component-name]/
 │   │       ├── test-plan.md
 │   │       ├── test-[component-name].sh
-│   │       └── test-results-*.json
+│   │       ├── test-results-*.json
+│   │       └── bug-report-*.md
 │   ├── integration-tests/
 │   └── deployment-readiness/
 ├── 6-Deployment/
