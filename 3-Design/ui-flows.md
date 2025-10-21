@@ -113,57 +113,98 @@ Upload → Validation Error → Error Display → [Fix Excel | Manual Entry] →
 
 ## 4. Manual Entry Flow
 
-### 4.1 Step-by-Step Form Flow
+### 4.1 Enhanced Step-by-Step Form Flow
 ```
-Input Method → Manual Entry → Client Info → Compute → Storage → Network → Database → Security → Review
+Input Method → Manual Entry → Client Info → Compute → Storage → Network → Database → Security → Cost Summary → Service Recommendations → Validation & Review → Final Review & Submit
 ```
 
-**Form Sections:**
+**Enhanced Form Sections:**
 1. **Client Information** (Required)
-   - Company details
-   - Contact information
-   - Project timeline
-   - Compliance requirements
+   - Company details (name, industry, size)
+   - Primary and technical contacts
+   - Project details and timeline
+   - AWS regions and business criticality
+   - Compliance requirements and disaster recovery
 
 2. **Compute Requirements** (Required)
-   - Server specifications
-   - Scaling requirements
-   - Environment details
+   - Server configuration (name, environment, workload type)
+   - Hardware specifications (CPU, RAM, OS, architecture)
+   - Performance and scaling (utilization, scaling type, instances)
+   - Storage and network (storage type, volumes, network performance)
+   - Advanced options (placement groups, tenancy, hibernation)
 
 3. **Storage Requirements** (Optional)
-   - Storage types and sizes
-   - Performance requirements
-   - Backup needs
+   - Storage configuration (name, purpose, size, growth)
+   - Performance requirements (IOPS, throughput, access patterns)
+   - Durability and availability requirements
+   - Backup and retention policies
+   - Advanced features (replication, versioning, lifecycle)
 
-4. **Network Requirements** (Optional)
-   - Bandwidth requirements
-   - Load balancing
-   - CDN needs
+4. **Network & CDN Requirements** (Optional)
+   - Traffic and bandwidth (data transfer, peak bandwidth, users)
+   - Load balancing and SSL configuration
+   - Security features (WAF, DDoS protection)
+   - CDN and edge locations
+   - API Gateway and connectivity (VPN, Direct Connect)
 
 5. **Database Requirements** (Optional)
-   - Database engines
-   - Instance specifications
-   - High availability
+   - Database configuration (name, purpose, engine, version)
+   - Hardware specifications (size, growth, instance class, CPU/RAM)
+   - Storage configuration (type, IOPS)
+   - High availability (Multi-AZ, read replicas, regions)
+   - Backup and maintenance windows
+   - Security and monitoring features
 
-6. **Security Requirements** (Optional)
-   - Security services
-   - Compliance tools
+6. **Security & Compliance** (Optional)
+   - Compliance frameworks and data classification
+   - AWS security services (Config, CloudTrail, GuardDuty, etc.)
+   - Network security (VPC Flow Logs, WAF, Shield)
+   - Security operations (penetration testing, training, incident response)
 
-### 4.2 Form Navigation
+7. **Cost Summary & Optimization** (Auto-generated)
+   - Real-time cost breakdown by service category
+   - Monthly, quarterly, and annual projections
+   - Savings opportunities (Reserved Instances, Spot, Savings Plans)
+   - Cost optimization recommendations
+
+8. **Service Recommendations** (Auto-generated)
+   - AWS service mappings based on requirements
+   - Instance type recommendations
+   - Storage class suggestions
+   - Architecture optimization tips
+
+9. **Validation & Review** (Auto-generated)
+   - Field validation results
+   - Missing required information
+   - Configuration warnings and suggestions
+   - Compliance gap analysis
+
+10. **Final Review & Submit** (Required)
+    - Complete estimation summary
+    - All requirements review
+    - Cost breakdown validation
+    - Submit for processing
+
+### 4.2 Enhanced Form Navigation
 ```
-Section Navigation: Previous ← Current Section → Next
+Section Navigation: Previous ← Current Section (X of 10) → Next
                            ↓
                     Save Draft (available on all sections)
                            ↓
                     Real-time Validation & Cost Updates
+                           ↓
+                    Auto-suggestions & Recommendations
 ```
 
-**Navigation Features:**
-- Progress indicator showing completion status
-- Section validation before proceeding
-- Save draft functionality
-- Real-time cost calculation display
+**Enhanced Navigation Features:**
+- 10-section progress indicator (vs previous 7)
+- Section validation with enhanced field checks
+- Save draft functionality with auto-save
+- Real-time cost calculation per section and total
 - Jump to any completed section
+- Auto-suggestions for AWS services and instance types
+- Field-level validation with dropdown constraints
+- Multi-item support (add/remove servers, storage, databases)
 
 ## 5. Cost Calculation Flow
 

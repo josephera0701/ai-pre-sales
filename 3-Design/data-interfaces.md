@@ -79,15 +79,26 @@
     "description": "string (optional, max 500 chars)",
     "inputMethod": "string (EXCEL_UPLOAD|MANUAL_ENTRY)",
     "clientInfo": {
+      "clientId": "string (UUID, auto-generated)",
       "companyName": "string (required, 2-100 chars)",
-      "industry": "string (required)",
-      "primaryContact": "string (required)",
-      "email": "string (required, email format)",
-      "phone": "string (optional)",
-      "timeline": "string (optional)",
-      "budgetRange": "string (optional)",
-      "regionPreference": ["string (AWS regions)"],
-      "complianceRequirements": ["string (SOC2|HIPAA|PCI-DSS|GDPR)"]
+      "industryType": "string (required, from dropdown)",
+      "companySize": "string (Startup|SME|Enterprise)",
+      "primaryContactName": "string (required)",
+      "primaryContactEmail": "string (required, email format)",
+      "primaryContactPhone": "string (phone format)",
+      "technicalContactName": "string (optional)",
+      "technicalContactEmail": "string (optional, email format)",
+      "projectDescription": "string (max 500 chars)",
+      "projectTimelineMonths": "number (1-60)",
+      "budgetRange": "string (from dropdown)",
+      "primaryAwsRegion": "string (AWS region)",
+      "secondaryAwsRegions": ["string (AWS regions)"],
+      "complianceRequirements": ["string (GDPR|HIPAA|SOC2|PCI_DSS|ISO27001|FedRAMP)"],
+      "businessCriticality": "string (Low|Medium|High|Critical)",
+      "disasterRecoveryRequired": "boolean",
+      "multiRegionRequired": "boolean",
+      "createdDate": "string (ISO 8601, auto-populated)",
+      "lastModified": "string (ISO 8601, auto-populated)"
     }
   },
   "response": {
@@ -130,78 +141,169 @@
       "requirements": {
         "computeRequirements": [
           {
-            "serverName": "string",
-            "environment": "string (Production|Staging|Development)",
+            "computeId": "string (UUID, auto-generated)",
+            "clientId": "string (UUID, reference)",
+            "serverName": "string (required, unique within project)",
+            "environmentType": "string (Production|Staging|Development|Testing)",
+            "workloadType": "string (Web|Database|Analytics|ML|Batch)",
             "cpuCores": "number (1-128)",
             "ramGB": "number (1-3904)",
-            "os": "string (Linux|Windows)",
-            "criticality": "string (Low|Medium|High|Critical)",
-            "utilizationPercent": "number (10-100)",
-            "peakUtilizationPercent": "number (10-100)",
-            "scalingType": "string (Manual|Auto|Scheduled)",
+            "operatingSystem": "string (Amazon_Linux|Ubuntu|Windows|RHEL)",
+            "architecture": "string (x86_64|ARM64)",
+            "businessCriticality": "string (Low|Medium|High|Critical)",
+            "averageUtilizationPercent": "number (10-100)",
+            "peakUtilizationPercent": "number (average_util to 100)",
+            "scalingType": "string (Manual|Auto|Scheduled|Predictive)",
             "minInstances": "number (1-100)",
-            "maxInstances": "number (1-1000)",
-            "monthlyHours": "number (1-744)",
-            "notes": "string (optional)"
+            "maxInstances": "number (min_instances to 1000)",
+            "monthlyRuntimeHours": "number (1-744)",
+            "storageType": "string (EBS_GP3|EBS_IO2|Instance_Store)",
+            "rootVolumeSizeGB": "number (8-16384)",
+            "additionalStorageGB": "number (0-65536)",
+            "networkPerformance": "string (Low|Moderate|High|Up_to_10Gbps|25Gbps|100Gbps)",
+            "placementGroupRequired": "boolean",
+            "dedicatedTenancyRequired": "boolean",
+            "hibernationSupportRequired": "boolean",
+            "suggestedInstanceType": "string (auto-calculated)",
+            "estimatedMonthlyCost": "number (auto-calculated)",
+            "optimizationRecommendations": "string (auto-populated)"
           }
         ],
         "storageRequirements": [
           {
-            "storageType": "string",
-            "currentGB": "number (min 1)",
-            "growthRatePercent": "number (0-1000)",
+            "storageId": "string (UUID, auto-generated)",
+            "clientId": "string (UUID, reference)",
+            "storageName": "string (required)",
+            "storagePurpose": "string (Application_Data|Database|Media|Backup|Archive|Logs)",
+            "currentSizeGB": "number (1-unlimited)",
+            "projectedGrowthRatePercent": "number (0-1000)",
+            "projectedSize12MonthsGB": "number (auto-calculated)",
+            "accessPattern": "string (Frequent|Infrequent|Archive|Intelligent_Tiering)",
             "iopsRequired": "number (100-64000)",
-            "throughputMBps": "number (125-4000)",
+            "throughputMbpsRequired": "number (125-4000)",
+            "durabilityRequirement": "string (Standard|High|Maximum)",
+            "availabilityRequirement": "string (Standard|High|Maximum)",
+            "encryptionRequired": "boolean",
             "backupRequired": "boolean",
-            "retentionDays": "number (1-2555)",
-            "accessPattern": "string (Frequent|Infrequent|Archive)"
+            "backupFrequency": "string (Hourly|Daily|Weekly|Monthly)",
+            "backupRetentionDays": "number (1-2555)",
+            "crossRegionReplication": "boolean",
+            "versioningRequired": "boolean",
+            "lifecycleManagementRequired": "boolean",
+            "complianceRequirements": ["string (multi-select)"],
+            "suggestedAwsService": "string (auto-calculated)",
+            "suggestedStorageClass": "string (auto-calculated)",
+            "estimatedMonthlyCost": "number (auto-calculated)",
+            "optimizationRecommendations": "string (auto-populated)"
           }
         ],
         "networkRequirements": {
-          "dataTransferOutGBMonth": "number (min 0)",
+          "networkId": "string (UUID, auto-generated)",
+          "clientId": "string (UUID, reference)",
+          "dataTransferOutGBMonthly": "number (0-unlimited)",
+          "dataTransferInGBMonthly": "number (0-unlimited)",
           "peakBandwidthMbps": "number (1-100000)",
+          "concurrentUsersExpected": "number (1-1000000)",
+          "geographicDistribution": ["string (multi-select regions)"],
           "loadBalancerCount": "number (0-100)",
+          "loadBalancerType": "string (ALB|NLB|CLB)",
           "sslCertificateRequired": "boolean",
+          "sslCertificateType": "string (Single|Wildcard|Multi_Domain)",
           "wafRequired": "boolean",
           "ddosProtectionRequired": "boolean",
-          "globalDistributionRequired": "boolean"
+          "cdnRequired": "boolean",
+          "cdnCacheBehavior": "string (Cache_Everything|Cache_Static|Custom)",
+          "edgeLocationsRequired": ["string (multi-select)"],
+          "apiGatewayRequired": "boolean",
+          "apiCallsMonthly": "number (0-unlimited)",
+          "vpnConnectionsRequired": "number (0-100)",
+          "directConnectRequired": "boolean",
+          "bandwidthDirectConnectMbps": "number (50-100000)",
+          "estimatedMonthlyCost": "number (auto-calculated)",
+          "optimizationRecommendations": "string (auto-populated)"
         },
         "databaseRequirements": [
           {
-            "databaseName": "string",
-            "engine": "string (MySQL|PostgreSQL|Oracle|SQL Server)",
-            "version": "string",
-            "sizeGB": "number (20-65536)",
-            "instanceClass": "string (AWS RDS instance class)",
-            "multiAZ": "boolean",
-            "readReplicas": "number (0-15)",
-            "backupRetention": "number (0-35)",
-            "encryptionEnabled": "boolean"
+            "databaseId": "string (UUID, auto-generated)",
+            "clientId": "string (UUID, reference)",
+            "databaseName": "string (required)",
+            "databasePurpose": "string (OLTP|OLAP|Data_Warehouse|Cache|Search)",
+            "engineType": "string (MySQL|PostgreSQL|Oracle|SQL_Server|Aurora_MySQL|Aurora_PostgreSQL|DynamoDB|ElastiCache)",
+            "engineVersion": "string (dependent on engine_type)",
+            "databaseSizeGB": "number (20-65536)",
+            "expectedGrowthRatePercent": "number (0-1000)",
+            "instanceClass": "string (dependent on engine)",
+            "cpuCores": "number (1-128)",
+            "ramGB": "number (1-3904)",
+            "storageType": "string (GP2|GP3|IO1|IO2|Magnetic)",
+            "iopsRequired": "number (100-80000)",
+            "multiAzRequired": "boolean",
+            "readReplicasCount": "number (0-15)",
+            "readReplicaRegions": ["string (multi-select)"],
+            "backupRetentionDays": "number (0-35)",
+            "backupWindowPreferred": "string (time format)",
+            "maintenanceWindowPreferred": "string (time format)",
+            "encryptionAtRestRequired": "boolean",
+            "encryptionInTransitRequired": "boolean",
+            "performanceInsightsRequired": "boolean",
+            "monitoringEnhancedRequired": "boolean",
+            "connectionPoolingRequired": "boolean",
+            "estimatedMonthlyCost": "number (auto-calculated)",
+            "optimizationRecommendations": "string (auto-populated)"
           }
         ],
         "securityRequirements": {
-          "awsConfig": "boolean",
-          "cloudTrail": "boolean",
-          "guardDuty": "boolean",
-          "securityHub": "boolean",
-          "inspector": "boolean",
-          "macie": "boolean",
-          "kms": "boolean",
-          "secretsManager": "boolean"
+          "securityId": "string (UUID, auto-generated)",
+          "clientId": "string (UUID, reference)",
+          "complianceFrameworks": ["string (GDPR|HIPAA|SOC2|PCI_DSS|ISO27001|FedRAMP)"],
+          "dataClassification": "string (Public|Internal|Confidential|Restricted)",
+          "awsConfigRequired": "boolean",
+          "cloudtrailRequired": "boolean",
+          "cloudtrailDataEvents": "boolean",
+          "guarddutyRequired": "boolean",
+          "securityHubRequired": "boolean",
+          "inspectorRequired": "boolean",
+          "macieRequired": "boolean",
+          "kmsRequired": "boolean",
+          "secretsManagerRequired": "boolean",
+          "certificateManagerRequired": "boolean",
+          "iamAccessAnalyzerRequired": "boolean",
+          "vpcFlowLogsRequired": "boolean",
+          "wafRequired": "boolean",
+          "shieldAdvancedRequired": "boolean",
+          "firewallManagerRequired": "boolean",
+          "networkFirewallRequired": "boolean",
+          "penetrationTestingRequired": "boolean",
+          "vulnerabilityScanningRequired": "boolean",
+          "securityTrainingRequired": "boolean",
+          "incidentResponsePlanRequired": "boolean",
+          "estimatedMonthlyCost": "number (auto-calculated)",
+          "complianceGapAnalysis": "string (auto-populated)"
         }
       },
       "estimationSummary": {
-        "totalMonthlyCost": "number",
-        "totalAnnualCost": "number",
+        "summaryId": "string (UUID, auto-generated)",
+        "computeMonthlyCost": "number (auto-calculated)",
+        "storageMonthlyCost": "number (auto-calculated)",
+        "networkMonthlyCost": "number (auto-calculated)",
+        "databaseMonthlyCost": "number (auto-calculated)",
+        "securityMonthlyCost": "number (auto-calculated)",
+        "supportMonthlyCost": "number (auto-calculated)",
+        "totalMonthlyCost": "number (auto-calculated)",
+        "totalQuarterlyCost": "number (auto-calculated)",
+        "totalAnnualCost": "number (auto-calculated)",
+        "reservedInstanceSavingsPotential": "number (auto-calculated)",
+        "spotInstanceSavingsPotential": "number (auto-calculated)",
+        "savingsPlanSavingsPotential": "number (auto-calculated)",
+        "optimizationSavingsPotential": "number (auto-calculated)",
+        "costBreakdownByService": "object (JSON format)",
+        "costBreakdownByRegion": "object (JSON format)",
+        "costTrendProjection": "object (JSON format)",
+        "budgetVariancePercent": "number (auto-calculated)",
+        "costOptimizationScore": "number (auto-calculated)",
         "currency": "string",
         "lastCalculatedAt": "string (ISO 8601)",
-        "costBreakdown": {
-          "compute": "number",
-          "storage": "number",
-          "database": "number",
-          "network": "number",
-          "security": "number"
-        }
+        "lastUpdated": "string (ISO 8601, auto-populated)"
       }
     }
   }
@@ -719,30 +821,221 @@ const businessRules = {
 };
 ```
 
-## 6. Data Transformation Interfaces
+## 6. Validation Rules Interface
 
-### 6.1 Excel to API Mapping
+### 6.1 Validation Rules Response
+```json
+{
+  "endpoint": "GET /validation/rules",
+  "response": {
+    "success": "boolean",
+    "data": [
+      {
+        "fieldName": "string",
+        "validationType": "string (dropdown|number|text|date|email|phone)",
+        "validationRule": "string",
+        "errorMessage": "string",
+        "requiredField": "boolean",
+        "dependentField": "string (optional)",
+        "dependencyCondition": "string (optional)"
+      }
+    ]
+  }
+}
+```
+
+### 6.2 Dropdown Lists Interface
+```json
+{
+  "endpoint": "GET /dropdown/lists",
+  "response": {
+    "success": "boolean",
+    "data": {
+      "industryTypes": ["string"],
+      "companySizes": ["Startup", "SME", "Enterprise"],
+      "budgetRanges": ["string"],
+      "awsRegions": ["string"],
+      "complianceFrameworks": ["GDPR", "HIPAA", "SOC2", "PCI_DSS", "ISO27001", "FedRAMP"],
+      "workloadTypes": ["Web", "Database", "Analytics", "ML", "Batch"],
+      "operatingSystems": ["Amazon_Linux", "Ubuntu", "Windows", "RHEL"],
+      "architectures": ["x86_64", "ARM64"],
+      "scalingTypes": ["Manual", "Auto", "Scheduled", "Predictive"],
+      "storageTypes": ["EBS_GP3", "EBS_IO2", "Instance_Store"],
+      "networkPerformance": ["Low", "Moderate", "High", "Up_to_10Gbps", "25Gbps", "100Gbps"],
+      "storagePurposes": ["Application_Data", "Database", "Media", "Backup", "Archive", "Logs"],
+      "accessPatterns": ["Frequent", "Infrequent", "Archive", "Intelligent_Tiering"],
+      "backupFrequencies": ["Hourly", "Daily", "Weekly", "Monthly"],
+      "loadBalancerTypes": ["ALB", "NLB", "CLB"],
+      "sslCertificateTypes": ["Single", "Wildcard", "Multi_Domain"],
+      "databasePurposes": ["OLTP", "OLAP", "Data_Warehouse", "Cache", "Search"],
+      "databaseEngines": ["MySQL", "PostgreSQL", "Oracle", "SQL_Server", "Aurora_MySQL", "Aurora_PostgreSQL", "DynamoDB", "ElastiCache"],
+      "storageClasses": ["GP2", "GP3", "IO1", "IO2", "Magnetic"],
+      "dataClassifications": ["Public", "Internal", "Confidential", "Restricted"]
+    }
+  }
+}
+```
+
+### 6.3 Service Mapping Interface
+```json
+{
+  "endpoint": "GET /service/mapping",
+  "response": {
+    "success": "boolean",
+    "data": [
+      {
+        "requirementType": "string",
+        "requirementValue": "string",
+        "suggestedAwsService": "string",
+        "alternativeServices": ["string"],
+        "costFactor": "number",
+        "optimizationNotes": "string"
+      }
+    ]
+  }
+}
+```
+
+## 7. Data Transformation Interfaces
+
+### 7.1 Enhanced Excel to API Mapping
 ```javascript
 const excelToApiMapping = {
-  'Client_Info': {
-    'Company Name': 'clientInfo.companyName',
-    'Industry': 'clientInfo.industry',
-    'Primary Contact': 'clientInfo.primaryContact',
-    'Email': 'clientInfo.email',
-    'Phone': 'clientInfo.phone',
-    'Timeline': 'clientInfo.timeline',
-    'Budget Range': 'clientInfo.budgetRange'
+  'Client_Info_Enhanced': {
+    'client_id': 'clientInfo.clientId',
+    'company_name': 'clientInfo.companyName',
+    'industry_type': 'clientInfo.industryType',
+    'company_size': 'clientInfo.companySize',
+    'primary_contact_name': 'clientInfo.primaryContactName',
+    'primary_contact_email': 'clientInfo.primaryContactEmail',
+    'primary_contact_phone': 'clientInfo.primaryContactPhone',
+    'technical_contact_name': 'clientInfo.technicalContactName',
+    'technical_contact_email': 'clientInfo.technicalContactEmail',
+    'project_name': 'projectName',
+    'project_description': 'clientInfo.projectDescription',
+    'project_timeline_months': 'clientInfo.projectTimelineMonths',
+    'budget_range': 'clientInfo.budgetRange',
+    'primary_aws_region': 'clientInfo.primaryAwsRegion',
+    'secondary_aws_regions': 'clientInfo.secondaryAwsRegions',
+    'compliance_requirements': 'clientInfo.complianceRequirements',
+    'business_criticality': 'clientInfo.businessCriticality',
+    'disaster_recovery_required': 'clientInfo.disasterRecoveryRequired',
+    'multi_region_required': 'clientInfo.multiRegionRequired'
   },
-  'Compute_Requirements': {
-    'Server_Name': 'computeRequirements[].serverName',
-    'CPU_Cores': 'computeRequirements[].cpuCores',
-    'RAM_GB': 'computeRequirements[].ramGB',
-    'OS': 'computeRequirements[].os',
-    'Environment': 'computeRequirements[].environment',
-    'Utilization_%': 'computeRequirements[].utilizationPercent',
-    'Scaling_Type': 'computeRequirements[].scalingType',
-    'Min_Instances': 'computeRequirements[].minInstances',
-    'Max_Instances': 'computeRequirements[].maxInstances'
+  'Compute_Requirements_Enhanced': {
+    'compute_id': 'computeRequirements[].computeId',
+    'server_name': 'computeRequirements[].serverName',
+    'environment_type': 'computeRequirements[].environmentType',
+    'workload_type': 'computeRequirements[].workloadType',
+    'cpu_cores': 'computeRequirements[].cpuCores',
+    'ram_gb': 'computeRequirements[].ramGB',
+    'operating_system': 'computeRequirements[].operatingSystem',
+    'architecture': 'computeRequirements[].architecture',
+    'business_criticality': 'computeRequirements[].businessCriticality',
+    'average_utilization_percent': 'computeRequirements[].averageUtilizationPercent',
+    'peak_utilization_percent': 'computeRequirements[].peakUtilizationPercent',
+    'scaling_type': 'computeRequirements[].scalingType',
+    'min_instances': 'computeRequirements[].minInstances',
+    'max_instances': 'computeRequirements[].maxInstances',
+    'monthly_runtime_hours': 'computeRequirements[].monthlyRuntimeHours',
+    'storage_type': 'computeRequirements[].storageType',
+    'root_volume_size_gb': 'computeRequirements[].rootVolumeSizeGB',
+    'additional_storage_gb': 'computeRequirements[].additionalStorageGB',
+    'network_performance': 'computeRequirements[].networkPerformance',
+    'placement_group_required': 'computeRequirements[].placementGroupRequired',
+    'dedicated_tenancy_required': 'computeRequirements[].dedicatedTenancyRequired',
+    'hibernation_support_required': 'computeRequirements[].hibernationSupportRequired'
+  },
+  'Storage_Requirements_Enhanced': {
+    'storage_id': 'storageRequirements[].storageId',
+    'storage_name': 'storageRequirements[].storageName',
+    'storage_purpose': 'storageRequirements[].storagePurpose',
+    'current_size_gb': 'storageRequirements[].currentSizeGB',
+    'projected_growth_rate_percent': 'storageRequirements[].projectedGrowthRatePercent',
+    'access_pattern': 'storageRequirements[].accessPattern',
+    'iops_required': 'storageRequirements[].iopsRequired',
+    'throughput_mbps_required': 'storageRequirements[].throughputMbpsRequired',
+    'durability_requirement': 'storageRequirements[].durabilityRequirement',
+    'availability_requirement': 'storageRequirements[].availabilityRequirement',
+    'encryption_required': 'storageRequirements[].encryptionRequired',
+    'backup_required': 'storageRequirements[].backupRequired',
+    'backup_frequency': 'storageRequirements[].backupFrequency',
+    'backup_retention_days': 'storageRequirements[].backupRetentionDays',
+    'cross_region_replication': 'storageRequirements[].crossRegionReplication',
+    'versioning_required': 'storageRequirements[].versioningRequired',
+    'lifecycle_management_required': 'storageRequirements[].lifecycleManagementRequired'
+  },
+  'Network_CDN_Enhanced': {
+    'network_id': 'networkRequirements.networkId',
+    'data_transfer_out_gb_monthly': 'networkRequirements.dataTransferOutGBMonthly',
+    'data_transfer_in_gb_monthly': 'networkRequirements.dataTransferInGBMonthly',
+    'peak_bandwidth_mbps': 'networkRequirements.peakBandwidthMbps',
+    'concurrent_users_expected': 'networkRequirements.concurrentUsersExpected',
+    'geographic_distribution': 'networkRequirements.geographicDistribution',
+    'load_balancer_count': 'networkRequirements.loadBalancerCount',
+    'load_balancer_type': 'networkRequirements.loadBalancerType',
+    'ssl_certificate_required': 'networkRequirements.sslCertificateRequired',
+    'ssl_certificate_type': 'networkRequirements.sslCertificateType',
+    'waf_required': 'networkRequirements.wafRequired',
+    'ddos_protection_required': 'networkRequirements.ddosProtectionRequired',
+    'cdn_required': 'networkRequirements.cdnRequired',
+    'cdn_cache_behavior': 'networkRequirements.cdnCacheBehavior',
+    'edge_locations_required': 'networkRequirements.edgeLocationsRequired',
+    'api_gateway_required': 'networkRequirements.apiGatewayRequired',
+    'api_calls_monthly': 'networkRequirements.apiCallsMonthly',
+    'vpn_connections_required': 'networkRequirements.vpnConnectionsRequired',
+    'direct_connect_required': 'networkRequirements.directConnectRequired',
+    'bandwidth_direct_connect_mbps': 'networkRequirements.bandwidthDirectConnectMbps'
+  },
+  'Database_Requirements_Enhanced': {
+    'database_id': 'databaseRequirements[].databaseId',
+    'database_name': 'databaseRequirements[].databaseName',
+    'database_purpose': 'databaseRequirements[].databasePurpose',
+    'engine_type': 'databaseRequirements[].engineType',
+    'engine_version': 'databaseRequirements[].engineVersion',
+    'database_size_gb': 'databaseRequirements[].databaseSizeGB',
+    'expected_growth_rate_percent': 'databaseRequirements[].expectedGrowthRatePercent',
+    'instance_class': 'databaseRequirements[].instanceClass',
+    'cpu_cores': 'databaseRequirements[].cpuCores',
+    'ram_gb': 'databaseRequirements[].ramGB',
+    'storage_type': 'databaseRequirements[].storageType',
+    'iops_required': 'databaseRequirements[].iopsRequired',
+    'multi_az_required': 'databaseRequirements[].multiAzRequired',
+    'read_replicas_count': 'databaseRequirements[].readReplicasCount',
+    'read_replica_regions': 'databaseRequirements[].readReplicaRegions',
+    'backup_retention_days': 'databaseRequirements[].backupRetentionDays',
+    'backup_window_preferred': 'databaseRequirements[].backupWindowPreferred',
+    'maintenance_window_preferred': 'databaseRequirements[].maintenanceWindowPreferred',
+    'encryption_at_rest_required': 'databaseRequirements[].encryptionAtRestRequired',
+    'encryption_in_transit_required': 'databaseRequirements[].encryptionInTransitRequired',
+    'performance_insights_required': 'databaseRequirements[].performanceInsightsRequired',
+    'monitoring_enhanced_required': 'databaseRequirements[].monitoringEnhancedRequired',
+    'connection_pooling_required': 'databaseRequirements[].connectionPoolingRequired'
+  },
+  'Security_Compliance_Enhanced': {
+    'security_id': 'securityRequirements.securityId',
+    'compliance_frameworks': 'securityRequirements.complianceFrameworks',
+    'data_classification': 'securityRequirements.dataClassification',
+    'aws_config_required': 'securityRequirements.awsConfigRequired',
+    'cloudtrail_required': 'securityRequirements.cloudtrailRequired',
+    'cloudtrail_data_events': 'securityRequirements.cloudtrailDataEvents',
+    'guardduty_required': 'securityRequirements.guarddutyRequired',
+    'security_hub_required': 'securityRequirements.securityHubRequired',
+    'inspector_required': 'securityRequirements.inspectorRequired',
+    'macie_required': 'securityRequirements.macieRequired',
+    'kms_required': 'securityRequirements.kmsRequired',
+    'secrets_manager_required': 'securityRequirements.secretsManagerRequired',
+    'certificate_manager_required': 'securityRequirements.certificateManagerRequired',
+    'iam_access_analyzer_required': 'securityRequirements.iamAccessAnalyzerRequired',
+    'vpc_flow_logs_required': 'securityRequirements.vpcFlowLogsRequired',
+    'waf_required': 'securityRequirements.wafRequired',
+    'shield_advanced_required': 'securityRequirements.shieldAdvancedRequired',
+    'firewall_manager_required': 'securityRequirements.firewallManagerRequired',
+    'network_firewall_required': 'securityRequirements.networkFirewallRequired',
+    'penetration_testing_required': 'securityRequirements.penetrationTestingRequired',
+    'vulnerability_scanning_required': 'securityRequirements.vulnerabilityScanningRequired',
+    'security_training_required': 'securityRequirements.securityTrainingRequired',
+    'incident_response_plan_required': 'securityRequirements.incidentResponsePlanRequired'
   }
 };
 ```

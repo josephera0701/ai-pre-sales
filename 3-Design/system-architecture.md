@@ -122,6 +122,13 @@ src/
 │   ├── POST /excel/upload (🔒 Auth Required)
 │   ├── POST /excel/validate (🔒 Auth Required)
 │   └── POST /excel/process (🔒 Auth Required)
+├── /validation (🔒 Auth Required)
+│   ├── GET /validation/rules
+│   └── GET /validation/dropdown-lists
+├── /recommendations (🔒 Auth Required)
+│   ├── POST /recommendations/services
+│   ├── POST /recommendations/instances
+│   └── POST /recommendations/optimization
 ├── /calculations (🔒 Auth Required)
 │   ├── POST /calculations/cost
 │   ├── POST /calculations/compare
@@ -257,13 +264,70 @@ exports.handler = async (event) => {
 };
 ```
 
-#### Function Configuration
+##### 4. Validation Rules Function
+```javascript
+// validation-rules-lambda
+exports.handler = async (event) => {
+    const validationRules = await getValidationRulesFromDynamoDB();
+    
+    return {
+        statusCode: 200,
+        body: JSON.stringify({
+            success: true,
+            data: validationRules
+        })
+    };
+};
+```
+
+##### 5. Dropdown Lists Function
+```javascript
+// dropdown-lists-lambda
+exports.handler = async (event) => {
+    const dropdownLists = await getDropdownListsFromDynamoDB();
+    
+    return {
+        statusCode: 200,
+        body: JSON.stringify({
+            success: true,
+            data: dropdownLists
+        })
+    };
+};
+```
+
+##### 6. Service Recommendations Function
+```javascript
+// service-recommendations-lambda
+exports.handler = async (event) => {
+    const { requirements } = JSON.parse(event.body);
+    
+    const serviceMapping = await getServiceMappingFromDynamoDB();
+    const recommendations = await generateServiceRecommendations(requirements, serviceMapping);
+    
+    return {
+        statusCode: 200,
+        body: JSON.stringify({
+            success: true,
+            data: {
+                computeRecommendations: recommendations.compute,
+                storageRecommendations: recommendations.storage,
+                databaseRecommendations: recommendations.database,
+                networkRecommendations: recommendations.network,
+                securityRecommendations: recommendations.security
+            }
+        })
+    };
+};
+```
+
+#### Enhanced Function Configuration
 - **Runtime:** Node.js 18.x
-- **Memory:** 512MB (cost calculator), 1024MB (document generator), 256MB (others)
-- **Timeout:** 30 seconds (document generation), 10 seconds (others)
+- **Memory:** 1024MB (excel processor), 512MB (cost calculator), 1024MB (document generator), 256MB (others)
+- **Timeout:** 60 seconds (excel processing), 30 seconds (document generation), 10 seconds (others)
 - **Environment Variables:** Encrypted with KMS
 - **VPC:** No VPC (for better cold start performance)
-- **Provisioned Concurrency:** 2 instances for cost calculator during business hours
+- **Provisioned Concurrency:** 2 instances for cost calculator, 1 instance for excel processor during business hours
 
 ### 2.4 Data Architecture
 
