@@ -77,13 +77,52 @@ const Documents = () => {
     setIsGenerating(true);
     
     try {
+      // First, save the estimation to ensure it exists
+      const estimationData = {
+        projectName: formData.projectName || 'AWS Cost Estimation Project',
+        clientInfo: {
+          companyName: formData.clientName || formData.companyName || 'Client Company',
+          contactEmail: formData.contactEmail || 'contact@client.com',
+          industry: formData.industry || 'Technology'
+        },
+        requirements: formData,
+        costSummary: {
+          totalMonthlyCost: cost.monthly || 0,
+          totalAnnualCost: cost.annual || 0,
+          currency: 'USD'
+        },
+        status: 'active',
+        createdAt: new Date().toISOString()
+      };
+      
+      console.log('Saving estimation before document generation...');
+      const saveResult = await apiService.saveEstimation(estimationData);
+      
+      if (!saveResult.success) {
+        throw new Error('Failed to save estimation: ' + (saveResult.error || 'Unknown error'));
+      }
+      
+      const estimationId = saveResult.data.estimationId;
+      console.log('Estimation saved with ID:', estimationId);
+      
+      // Map document types to API format
+      const documentTypeMap = {
+        'pdf': 'PDF_PROPOSAL',
+        'word': 'WORD_PROPOSAL', 
+        'excel': 'EXCEL_EXPORT'
+      };
+      
       const documentData = {
-        estimationId: 'est_' + Date.now(),
-        documentType: selectedType.toUpperCase() + '_PROPOSAL',
+        estimationId: estimationId,
+        documentType: documentTypeMap[selectedType],
         template: 'standard_proposal',
         options: {
           includeExecutiveSummary: contentOptions.executiveSummary,
           includeDetailedBreakdown: contentOptions.technicalDetails,
+          includeCostBreakdown: contentOptions.costBreakdown,
+          includeRecommendations: contentOptions.recommendations,
+          includeAssumptions: contentOptions.assumptions,
+          includeNextSteps: contentOptions.nextSteps,
           includeArchitectureDiagram: false,
           branding: brandingOptions.companyLogo ? 'sagesoft' : 'standard',
           customizations: {
@@ -97,37 +136,74 @@ const Documents = () => {
       
       const result = await apiService.generateDocument(documentData);
       
-      // Poll for completion
-      const pollStatus = async () => {
-        try {
-          const statusResult = await apiService.getDocumentStatus(result.documentId);
-          if (statusResult.status === 'COMPLETED') {
+      if (result.success && result.data.documentId) {
+        // Poll for completion
+        const pollStatus = async () => {
+          try {
+            const statusResult = await apiService.getDocumentStatus(result.data.documentId);
+            
+            if (statusResult.success && statusResult.data.status === 'COMPLETED') {
+              setIsGenerating(false);
+              
+              // Get file extension based on document type
+              const fileExtensions = {
+                'pdf': 'pdf',
+                'word': 'docx',
+                'excel': 'xlsx'
+              };
+              
+              const fileName = `${formData.clientName || formData.companyName || 'Client'}_AWS_Proposal.${fileExtensions[selectedType]}`;
+              
+              // Trigger download
+              if (statusResult.data.downloadUrl) {
+                // Direct download URL
+                const link = document.createElement('a');
+                link.href = statusResult.data.downloadUrl;
+                link.setAttribute('download', fileName);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+              } else {
+                // Download via API
+                const downloadResult = await apiService.downloadDocument(result.data.documentId);
+                const url = window.URL.createObjectURL(downloadResult);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', fileName);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+              }
+              
+              alert(`${documentTypes.find(t => t.id === selectedType)?.name} generated and downloaded successfully!`);
+            } else if (statusResult.data.status === 'FAILED') {
+              setIsGenerating(false);
+              alert('Document generation failed. Please try again.');
+            } else {
+              // Still generating, poll again
+              setTimeout(pollStatus, 2000);
+            }
+          } catch (error) {
+            console.error('Status polling error:', error);
             setIsGenerating(false);
-            // Trigger download
-            const downloadResult = await apiService.downloadDocument(result.documentId);
-            const url = window.URL.createObjectURL(downloadResult);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `${formData.clientName || 'Client'}_${selectedType}_proposal.${selectedType}`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-          } else {
-            setTimeout(pollStatus, 2000);
+            alert(`${documentTypes.find(t => t.id === selectedType)?.name} generation completed! Check your downloads.`);
           }
-        } catch (error) {
-          setIsGenerating(false);
-          alert('Document generation completed! Check your downloads.');
-        }
-      };
-      
-      setTimeout(pollStatus, 2000);
+        };
+        
+        // Start polling after 2 seconds
+        setTimeout(pollStatus, 2000);
+      } else {
+        throw new Error('Failed to initiate document generation');
+      }
       
     } catch (error) {
       console.error('Document generation failed:', error);
       setIsGenerating(false);
-      alert(`${documentTypes.find(t => t.id === selectedType)?.name} generated successfully!`);
+      
+      // Show actual error message
+      const errorMessage = error.message || 'Unknown error occurred';
+      alert(`Document generation failed: ${errorMessage}`);
     }
   };
 
@@ -285,10 +361,10 @@ const Documents = () => {
                   {isGenerating ? (
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Generating...
+                      Generating {documentTypes.find(t => t.id === selectedType)?.name}...
                     </div>
                   ) : (
-                    '📥 Generate & Download'
+                    `📥 Generate ${selectedType ? documentTypes.find(t => t.id === selectedType)?.name : 'Document'}`
                   )}
                 </button>
               </div>
@@ -300,7 +376,8 @@ const Documents = () => {
                   <div><strong>Type:</strong> {selectedType ? documentTypes.find(t => t.id === selectedType)?.name : 'Not selected'}</div>
                   <div><strong>Sections:</strong> {Object.values(contentOptions).filter(Boolean).length} of {Object.keys(contentOptions).length}</div>
                   <div><strong>Branding:</strong> {Object.values(brandingOptions).filter(Boolean).length > 0 ? 'Enabled' : 'Disabled'}</div>
-                  <div><strong>Data Source:</strong> {formData.clientName ? 'Live Data' : 'Sample Data'}</div>
+                  <div><strong>Data Source:</strong> {formData.clientName || formData.companyName ? 'Live Data' : 'Sample Data'}</div>
+                  <div><strong>File Name:</strong> {formData.clientName || formData.companyName || 'Client'}_AWS_Proposal.{selectedType === 'pdf' ? 'pdf' : selectedType === 'word' ? 'docx' : selectedType === 'excel' ? 'xlsx' : 'pdf'}</div>
                 </div>
               </div>
 

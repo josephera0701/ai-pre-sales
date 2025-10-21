@@ -119,12 +119,20 @@ const ExcelUpload = () => {
     try {
       // Upload file to backend
       const uploadResult = await apiService.uploadExcel(file);
+      console.log('Upload result:', uploadResult);
+      
+      // Extract uploadId from the response structure
+      const uploadId = uploadResult.data?.uploadId || uploadResult.uploadId;
+      if (!uploadId) {
+        throw new Error('Upload failed - no upload ID received');
+      }
       
       // Validate the uploaded file
-      const validationResult = await apiService.validateExcel(uploadResult.uploadId);
+      const validationResult = await apiService.validateExcel(uploadId);
+      console.log('Validation result:', validationResult);
       
       // Parse the validation results to match Manual Entry structure
-      const parsed = validationResult.parsedData || {};
+      const parsed = validationResult.data?.parsedData || validationResult.parsedData || {};
       setParsedData(parsed);
       
       // Convert parsed data to form data structure

@@ -1,0 +1,8 @@
+{
+  "httpMethod": "GET",
+  "path": "/validation-rules",
+  "headers": {
+    "x-user-id": "test-user",
+    "Content-Type": "application/json"
+  }
+}

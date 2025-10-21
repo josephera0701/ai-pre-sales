@@ -38,7 +38,7 @@ class ApiService {
   handleApiError(error) {
     if (error.response?.status === 401) {
       Auth.signOut();
-      window.location.href = '/login';
+      window.location.href = '/';
     } else if (error.response?.status === 403) {
       throw new Error('Access denied. Please check your permissions.');
     } else if (error.response?.status >= 500) {
@@ -79,29 +79,35 @@ class ApiService {
 
   // Excel Processing API Integration
   async downloadExcelTemplate() {
-    return this.withApiCall(() => this.client.get('/excel/template', { responseType: 'blob' }), '/excel/template');
+    try {
+      const response = await this.client.get('/excel/template');
+      if (response.success && response.data.downloadUrl) {
+        // Use presigned URL for direct download
+        window.open(response.data.downloadUrl, '_blank');
+        return response;
+      }
+    } catch (error) {
+      console.error('Template download failed:', error);
+      // Fallback to direct blob download
+      return this.withApiCall(() => this.client.get('/excel/template', { responseType: 'blob' }), '/excel/template');
+    }
   }
 
   async uploadExcel(file) {
-    try {
-      const reader = new FileReader();
-      const fileContent = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result.split(',')[1]); // Get base64 content
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      
-      const uploadData = {
-        fileName: file.name,
-        fileContent: fileContent,
-        templateType: 'cost-estimation'
-      };
-      
-      return await this.withApiCall(() => this.client.post('/excel/upload', uploadData), '/excel/upload');
-    } catch (error) {
-      console.error('Excel upload failed:', error);
-      return { uploadId: 'upload_' + Date.now(), filename: file.name, size: file.size };
-    }
+    const reader = new FileReader();
+    const fileContent = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result.split(',')[1]); // Get base64 content
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    
+    const uploadData = {
+      fileName: file.name,
+      fileContent: fileContent,
+      templateType: 'cost-estimation'
+    };
+    
+    return await this.withApiCall(() => this.client.post('/excel/upload', uploadData), '/excel/upload');
   }
 
   async validateExcel(uploadId) {
@@ -171,6 +177,11 @@ class ApiService {
 
   async cloneEstimation(estimationId, updates) {
     return await this.withApiCall(() => this.client.post(`/estimations/${estimationId}/clone`, updates), `/estimations/${estimationId}/clone`);
+  }
+
+  // Save estimation (alias for createEstimation)
+  async saveEstimation(data) {
+    return this.createEstimation(data);
   }
 }
 

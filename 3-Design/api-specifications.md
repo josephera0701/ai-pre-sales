@@ -4,7 +4,18 @@
 - **Project:** AWS Cost Estimation Platform for Sagesoft Solutions Inc.
 - **Phase:** 3 - System Design
 - **Date:** 2024-01-15
-- **Version:** 1.0
+- **Version:** 2.0 - Enhanced for 200+ Field Support
+
+## ⚠️ API UPDATE REQUIRED
+
+**Current Status:** API specifications updated to support enhanced database schema with 200+ fields
+
+**Key Updates:**
+- ✅ Enhanced estimation entities with UUID relationships
+- ✅ Multi-item support for servers, storage, databases
+- ✅ Comprehensive field coverage (200+ fields)
+- ✅ New validation and service mapping endpoints
+- ✅ Enhanced cost calculation with optimization recommendations
 
 ## 1. API Overview
 
@@ -268,27 +279,34 @@ GET /estimations?page=1&limit=20&status=ACTIVE&sortBy=createdAt&sortOrder=desc
 }
 ```
 
-### 4.2 Create New Estimation
+### 4.2 Create New Estimation (Enhanced)
 ```http
 POST /estimations
 ```
 
-**Request Body:**
+**Request Body (Enhanced with 200+ Fields):**
 ```json
 {
   "projectName": "Client XYZ Infrastructure",
   "description": "AWS cost estimation for Client XYZ migration",
   "inputMethod": "MANUAL_ENTRY",
-  "clientInfo": {
+  "enhancedClientInfo": {
     "companyName": "XYZ Corporation",
-    "industry": "Healthcare",
-    "primaryContact": "Dr. Smith",
-    "email": "dr.smith@xyz.com",
-    "phone": "+1-555-0199",
-    "timeline": "Q3 2024",
-    "budgetRange": "100000-200000",
-    "regionPreference": ["us-east-1"],
-    "complianceRequirements": ["HIPAA", "SOC2"]
+    "industryType": "Healthcare",
+    "companySize": "Enterprise",
+    "primaryContactName": "Dr. Smith",
+    "primaryContactEmail": "dr.smith@xyz.com",
+    "primaryContactPhone": "+1-555-0199",
+    "technicalContactName": "John Tech",
+    "technicalContactEmail": "john.tech@xyz.com",
+    "projectTimelineMonths": 6,
+    "budgetRange": "$100K-$500K",
+    "primaryAwsRegion": "us-east-1",
+    "secondaryAwsRegions": ["us-west-2"],
+    "complianceRequirements": ["HIPAA", "SOC2", "GDPR"],
+    "businessCriticality": "Critical",
+    "disasterRecoveryRequired": true,
+    "multiRegionRequired": true
   }
 }
 ```
@@ -299,9 +317,16 @@ POST /estimations
   "success": true,
   "data": {
     "estimationId": "est789",
+    "clientId": "client456",
     "projectName": "Client XYZ Infrastructure",
     "status": "DRAFT",
-    "createdAt": "2024-01-15T11:00:00Z"
+    "createdAt": "2024-01-15T11:00:00Z",
+    "enhancedSupport": true,
+    "multiItemSupport": {
+      "servers": 0,
+      "storageItems": 0,
+      "databases": 0
+    }
   }
 }
 ```
@@ -360,45 +385,253 @@ GET /estimations/{estimationId}
 }
 ```
 
-### 4.4 Update Estimation
+### 4.4 Update Estimation (Enhanced Multi-Item Support)
 ```http
 PUT /estimations/{estimationId}
+```
+
+**Request Body (Enhanced with Multi-Item Support):**
+```json
+{
+  "projectName": "Updated Project Name",
+  "description": "Updated description",
+  "enhancedClientInfo": {
+    "companyName": "Updated Company Name",
+    "industryType": "Healthcare",
+    "companySize": "Enterprise",
+    "businessCriticality": "Critical"
+  }
+}
+```
+
+### 4.5 Add Server to Estimation
+```http
+POST /estimations/{estimationId}/servers
 ```
 
 **Request Body:**
 ```json
 {
-  "projectName": "Updated Project Name",
-  "description": "Updated description",
-  "requirements": {
-    "computeRequirements": [
-      {
-        "serverName": "Web Server",
-        "environment": "Production",
-        "cpuCores": 8,
-        "ramGB": 32,
-        "os": "Linux",
-        "criticality": "High",
-        "utilizationPercent": 75,
-        "peakUtilizationPercent": 95,
-        "scalingType": "Auto",
-        "minInstances": 2,
-        "maxInstances": 12,
-        "monthlyHours": 744
-      }
-    ]
+  "serverName": "Web Server 1",
+  "environmentType": "Production",
+  "workloadType": "Web",
+  "cpuCores": 8,
+  "ramGB": 32,
+  "operatingSystem": "Amazon_Linux",
+  "architecture": "x86_64",
+  "businessCriticality": "High",
+  "averageUtilizationPercent": 75,
+  "peakUtilizationPercent": 95,
+  "scalingType": "Auto",
+  "minInstances": 2,
+  "maxInstances": 12,
+  "monthlyRuntimeHours": 744,
+  "storageType": "EBS_GP3",
+  "rootVolumeSizeGB": 100,
+  "additionalStorageGB": 500,
+  "networkPerformance": "High",
+  "placementGroupRequired": false,
+  "dedicatedTenancyRequired": false,
+  "hibernationSupportRequired": false
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "serverId": "srv001",
+    "serverName": "Web Server 1",
+    "suggestedInstanceType": "m5.2xlarge",
+    "estimatedMonthlyCost": 247.42,
+    "optimizationRecommendations": ["Consider Reserved Instances", "Enable detailed monitoring"]
   }
 }
 ```
 
-### 4.5 Delete Estimation
+### 4.6 Add Storage to Estimation
+```http
+POST /estimations/{estimationId}/storage
+```
+
+**Request Body:**
+```json
+{
+  "storageName": "Application Data Storage",
+  "storagePurpose": "Application_Data",
+  "currentSizeGB": 500,
+  "projectedGrowthRatePercent": 20,
+  "accessPattern": "Frequent",
+  "iopsRequired": 3000,
+  "throughputMbpsRequired": 250,
+  "durabilityRequirement": "High",
+  "availabilityRequirement": "High",
+  "encryptionRequired": true,
+  "backupRequired": true,
+  "backupFrequency": "Daily",
+  "backupRetentionDays": 30,
+  "crossRegionReplication": true,
+  "versioningRequired": false,
+  "lifecycleManagementRequired": true,
+  "complianceRequirements": ["SOC2", "PCI-DSS"]
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "storageId": "sto001",
+    "storageName": "Application Data Storage",
+    "suggestedAWSService": "EBS gp3",
+    "suggestedStorageClass": "Standard",
+    "estimatedMonthlyCost": 45.00,
+    "optimizationRecommendations": ["Use S3 Intelligent Tiering", "Enable lifecycle policies"]
+  }
+}
+```
+
+### 4.7 Add Database to Estimation
+```http
+POST /estimations/{estimationId}/databases
+```
+
+**Request Body:**
+```json
+{
+  "databaseName": "Primary Application DB",
+  "databasePurpose": "OLTP",
+  "engineType": "Aurora_MySQL",
+  "engineVersion": "8.0.mysql_aurora.3.02.0",
+  "databaseSizeGB": 500,
+  "expectedGrowthRatePercent": 15,
+  "instanceClass": "db.r6g.xlarge",
+  "cpuCores": 4,
+  "ramGB": 32,
+  "storageType": "Aurora",
+  "iopsRequired": 3000,
+  "multiAzRequired": true,
+  "readReplicasCount": 2,
+  "readReplicaRegions": ["us-west-2"],
+  "backupRetentionDays": 7,
+  "backupWindowPreferred": "03:00",
+  "maintenanceWindowPreferred": "04:00",
+  "encryptionAtRestRequired": true,
+  "encryptionInTransitRequired": true,
+  "performanceInsightsRequired": true,
+  "monitoringEnhancedRequired": true,
+  "connectionPoolingRequired": false
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "databaseId": "db001",
+    "databaseName": "Primary Application DB",
+    "suggestedInstanceClass": "db.r6g.xlarge",
+    "estimatedMonthlyCost": 1800.00,
+    "optimizationRecommendations": ["Consider Aurora Serverless v2", "Enable Performance Insights"]
+  }
+}
+```
+
+### 4.8 Update Network & Security Requirements
+```http
+PUT /estimations/{estimationId}/network-security
+```
+
+**Request Body:**
+```json
+{
+  "networkRequirements": {
+    "dataTransferOutGBMonthly": 1000,
+    "dataTransferInGBMonthly": 500,
+    "peakBandwidthMbps": 2000,
+    "concurrentUsersExpected": 10000,
+    "geographicDistribution": ["us-east-1", "us-west-2", "eu-west-1"],
+    "loadBalancerCount": 2,
+    "loadBalancerType": "ALB",
+    "sslCertificateRequired": true,
+    "sslCertificateType": "Wildcard",
+    "wafRequired": true,
+    "ddosProtectionRequired": true,
+    "cdnRequired": true,
+    "cdnCacheBehavior": "Cache_Static",
+    "apiGatewayRequired": true,
+    "apiCallsMonthly": 1000000,
+    "vpnConnectionsRequired": 2,
+    "directConnectRequired": false
+  },
+  "securityRequirements": {
+    "complianceFrameworks": ["SOC2", "PCI-DSS", "GDPR"],
+    "dataClassification": "Confidential",
+    "awsConfigRequired": true,
+    "cloudtrailRequired": true,
+    "cloudtrailDataEvents": true,
+    "guarddutyRequired": true,
+    "securityHubRequired": true,
+    "inspectorRequired": false,
+    "macieRequired": true,
+    "kmsRequired": true,
+    "secretsManagerRequired": true,
+    "certificateManagerRequired": true,
+    "iamAccessAnalyzerRequired": true,
+    "vpcFlowLogsRequired": true,
+    "shieldAdvancedRequired": true,
+    "firewallManagerRequired": false,
+    "networkFirewallRequired": false,
+    "penetrationTestingRequired": true,
+    "vulnerabilityScanningRequired": true,
+    "securityTrainingRequired": false,
+    "incidentResponsePlanRequired": true
+  }
+}
+```
+
+### 4.9 Get Multi-Item Components
+```http
+GET /estimations/{estimationId}/servers
+GET /estimations/{estimationId}/storage
+GET /estimations/{estimationId}/databases
+```
+
+**Response Example (Servers):**
+```json
+{
+  "success": true,
+  "data": {
+    "servers": [
+      {
+        "serverId": "srv001",
+        "serverName": "Web Server 1",
+        "environmentType": "Production",
+        "workloadType": "Web",
+        "cpuCores": 8,
+        "ramGB": 32,
+        "suggestedInstanceType": "m5.2xlarge",
+        "estimatedMonthlyCost": 247.42,
+        "optimizationRecommendations": ["Consider Reserved Instances"]
+      }
+    ],
+    "totalMonthlyCost": 247.42,
+    "count": 1
+  }
+}
+```
+
+### 4.10 Delete Estimation
 ```http
 DELETE /estimations/{estimationId}
 ```
 
 **Response (204 No Content)**
 
-### 4.6 Clone Estimation
+### 4.11 Clone Estimation
 ```http
 POST /estimations/{estimationId}/clone
 ```
@@ -411,9 +644,106 @@ POST /estimations/{estimationId}/clone
 }
 ```
 
-## 5. Excel Processing Endpoints
+## 5. Enhanced Validation and Service Mapping Endpoints
 
-### 5.1 Upload Excel File
+### 5.1 Get Validation Rules
+```http
+GET /validation/rules?fieldName=company_name
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "validationRules": [
+      {
+        "fieldName": "company_name",
+        "validationType": "text",
+        "validationRule": "required|min:2|max:100",
+        "errorMessage": "Company name is required and must be 2-100 characters",
+        "requiredField": true
+      }
+    ]
+  }
+}
+```
+
+### 5.2 Get Dropdown Lists
+```http
+GET /validation/dropdown-lists?listName=industry_types
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "dropdownLists": [
+      {
+        "listName": "industry_types",
+        "listValues": ["E-commerce", "Healthcare", "Financial Services", "Manufacturing", "Technology", "Education", "Government", "Media"],
+        "defaultValue": "Technology",
+        "description": "Available industry types for client classification"
+      }
+    ]
+  }
+}
+```
+
+### 5.3 Get Service Recommendations
+```http
+GET /services/recommendations?requirementType=compute&cpuCores=4&ramGB=16
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "recommendations": [
+      {
+        "requirementType": "compute",
+        "suggestedAWSService": "EC2",
+        "suggestedInstanceType": "t3.xlarge",
+        "alternativeServices": ["t3.large", "m5.xlarge", "c5.xlarge"],
+        "costFactor": 0.1664,
+        "optimizationNotes": "Consider Reserved Instances for 40% savings"
+      }
+    ]
+  }
+}
+```
+
+### 5.4 Get Optimization Tips
+```http
+GET /optimization/tips?category=compute&service=EC2
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "optimizationTips": [
+      {
+        "tipId": "reserved_instances",
+        "category": "compute",
+        "title": "Reserved Instances Savings",
+        "description": "Save up to 72% with Reserved Instances for predictable workloads",
+        "applicableServices": ["EC2", "RDS", "ElastiCache"],
+        "potentialSavingsPercent": 40,
+        "implementationComplexity": "Low",
+        "recommendationPriority": "High"
+      }
+    ]
+  }
+}
+```
+
+## 6. Excel Processing Endpoints
+
+### 6.1 Upload Excel File
 ```http
 POST /excel/upload
 ```
@@ -440,7 +770,7 @@ estimationId: est456
 }
 ```
 
-### 5.2 Validate Excel Template
+### 6.2 Validate Excel Template
 ```http
 POST /excel/validate
 ```
@@ -481,7 +811,7 @@ POST /excel/validate
 }
 ```
 
-### 5.3 Process Excel Data
+### 6.3 Process Excel Data
 ```http
 POST /excel/process
 ```
@@ -510,22 +840,38 @@ POST /excel/process
 }
 ```
 
-### 5.4 Download Excel Template
+### 6.4 Download Excel Template (S3-Based)
 ```http
 GET /excel/template
 ```
 
-**Response (200 OK):**
+**Implementation:** Direct S3 presigned URL redirect (no Lambda processing required)
+
+**Response (302 Redirect):**
+```http
+HTTP/1.1 302 Found
+Location: https://aws-cost-estimation-templates-prod.s3.amazonaws.com/Enhanced_AWS_Cost_Estimation_Template.xlsx?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...
+Content-Type: application/json
 ```
-Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-Content-Disposition: attachment; filename="AWS_Cost_Estimation_Template.xlsx"
 
-<binary-excel-data>
+**Alternative Response (200 OK with presigned URL):**
+```json
+{
+  "success": true,
+  "data": {
+    "downloadUrl": "https://aws-cost-estimation-templates-prod.s3.amazonaws.com/Enhanced_AWS_Cost_Estimation_Template.xlsx?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+    "fileName": "Enhanced_AWS_Cost_Estimation_Template.xlsx",
+    "fileSize": 2048576,
+    "version": "2.0",
+    "lastUpdated": "2024-01-15T08:00:00Z",
+    "expiresAt": "2024-01-15T11:00:00Z"
+  }
+}
 ```
 
-## 6. Cost Calculation Endpoints
+## 7. Enhanced Cost Calculation Endpoints
 
-### 6.1 Calculate Costs
+### 7.1 Calculate Enhanced Costs
 ```http
 POST /calculations/cost
 ```

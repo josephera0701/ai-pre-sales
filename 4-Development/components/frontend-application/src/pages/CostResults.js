@@ -207,13 +207,17 @@ const CostResults = () => {
                         projectName: formData.projectName || 'Cost Results',
                         description: 'Saved from cost results',
                         inputMethod: 'MANUAL_ENTRY',
-                        clientInfo: { companyName: formData.clientName || 'Unknown Client' },
-                        requirements: formData,
-                        estimationSummary: { totalMonthlyCost: grandTotal, totalAnnualCost: grandTotal * 12 }
+                        enhancedClientInfo: { 
+                          companyName: formData.clientName || 'Unknown Client',
+                          industryType: 'Technology',
+                          primaryAwsRegion: formData.region || 'us-east-1'
+                        }
                       };
                       const result = await apiService.createEstimation(estimationData);
-                      alert(`Estimation saved! ID: ${result.data.estimationId}`);
+                      const estimationId = result.data?.estimationId || result.estimationId;
+                      alert(`Estimation saved! ID: ${estimationId}`);
                     } catch (error) {
+                      console.error('Save estimation error:', error);
                       alert('Failed to save estimation. Please try again.');
                     }
                   }}
@@ -225,12 +229,30 @@ const CostResults = () => {
                   onClick={async () => {
                     try {
                       const configurations = [
-                        { name: 'Current', requirements: formData },
-                        { name: 'Optimized', requirements: { ...formData, instanceType: 't3.medium' } }
+                        { 
+                          name: 'Current Configuration', 
+                          requirements: {
+                            compute: [{ service: 'EC2', instanceType: formData.instanceType || 't3.medium', quantity: formData.ec2Instances || 1 }],
+                            storage: [{ service: 'EBS', storageType: 'gp3', sizeGB: formData.storageSize || 100 }],
+                            database: formData.databaseRequired === 'rds' ? [{ service: 'RDS', instanceType: 'db.t3.micro' }] : [],
+                            network: { dataTransferGB: 100, requests: 1000000 }
+                          }
+                        },
+                        { 
+                          name: 'Optimized Configuration', 
+                          requirements: {
+                            compute: [{ service: 'EC2', instanceType: 't3.small', quantity: formData.ec2Instances || 1 }],
+                            storage: [{ service: 'EBS', storageType: 'gp3', sizeGB: formData.storageSize || 100 }],
+                            database: formData.databaseRequired === 'rds' ? [{ service: 'RDS', instanceType: 'db.t3.micro' }] : [],
+                            network: { dataTransferGB: 100, requests: 1000000 }
+                          }
+                        }
                       ];
                       const result = await apiService.compareConfigurations(configurations);
-                      alert(`Comparison complete! Recommended: ${result.data.recommendedConfiguration}`);
+                      const recommendation = result.data?.recommendedConfiguration || result.recommendedConfiguration;
+                      alert(`Comparison complete! Recommended: ${recommendation}`);
                     } catch (error) {
+                      console.error('Compare configurations error:', error);
                       alert('Comparison feature temporarily unavailable.');
                     }
                   }}
@@ -239,7 +261,23 @@ const CostResults = () => {
                   📊 Compare Options
                 </button>
                 <button 
-                  onClick={() => alert('Share functionality will be implemented')}
+                  onClick={() => {
+                    const shareData = {
+                      title: `${formData.projectName || 'AWS Cost Estimation'} - $${grandTotal.toLocaleString()}/month`,
+                      text: `AWS Cost Estimation Results: $${grandTotal.toLocaleString()}/month ($${(grandTotal * 12).toLocaleString()}/year)`,
+                      url: window.location.href
+                    };
+                    
+                    if (navigator.share) {
+                      navigator.share(shareData).catch(() => {
+                        navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+                        alert('Results copied to clipboard!');
+                      });
+                    } else {
+                      navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+                      alert('Results copied to clipboard!');
+                    }
+                  }}
                   className="w-full bg-gray-600 text-white py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors"
                 >
                   🔗 Share Results

@@ -1,0 +1,36 @@
+{
+  "deploymentDate": "2024-01-15T10:40:00Z",
+  "functionName": "aws-cost-platform-user-management-enhanced",
+  "status": "DEPLOYED",
+  "enhancedFeatures": {
+    "databaseSchema": "aws-cost-platform-enhanced-dev",
+    "multiItemSupport": true,
+    "validationRules": true,
+    "dropdownLists": true,
+    "serviceMappings": true,
+    "optimizationTips": true,
+    "200FieldSupport": true
+  },
+  "apiEndpoints": [
+    "GET /estimations",
+    "POST /estimations", 
+    "GET /estimations/{id}",
+    "PUT /estimations/{id}",
+    "DELETE /estimations/{id}",
+    "POST /estimations/{id}/servers",
+    "PUT /estimations/{id}/servers/{serverId}",
+    "DELETE /estimations/{id}/servers/{serverId}",
+    "POST /estimations/{id}/storage",
+    "POST /estimations/{id}/databases",
+    "GET /validation-rules",
+    "GET /dropdown-lists",
+    "GET /service-mappings",
+    "GET /optimization-tips"
+  ],
+  "testResults": {
+    "deployment": "SUCCESS",
+    "lambdaCreation": "SUCCESS",
+    "iamRole": "SUCCESS",
+    "environmentVariables": "SUCCESS"
+  }
+}

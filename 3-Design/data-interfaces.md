@@ -4,7 +4,19 @@
 - **Project:** AWS Cost Estimation Platform for Sagesoft Solutions Inc.
 - **Phase:** 3 - System Design
 - **Date:** 2024-01-15
-- **Version:** 1.0
+- **Version:** 2.0 - Enhanced for 200+ Field Support
+
+## ✅ DATA INTERFACES UPDATED
+
+**Current Status:** Data interfaces updated to support enhanced database schema with 200+ fields
+
+**Key Updates:**
+- ✅ Enhanced client info with 20+ additional fields
+- ✅ Multi-item support for servers, storage, databases
+- ✅ UUID-based entity relationships
+- ✅ Comprehensive validation rules and dropdown lists
+- ✅ Service mapping and optimization recommendations
+- ✅ Enhanced Excel template field mapping (200+ fields)
 
 ## 1. API Data Interfaces
 
@@ -70,7 +82,7 @@
 
 ### 1.2 Estimation Interfaces
 
-#### Create Estimation Request
+#### Enhanced Create Estimation Request (200+ Fields)
 ```json
 {
   "endpoint": "POST /estimations",
@@ -78,7 +90,7 @@
     "projectName": "string (required, 3-100 chars)",
     "description": "string (optional, max 500 chars)",
     "inputMethod": "string (EXCEL_UPLOAD|MANUAL_ENTRY)",
-    "clientInfo": {
+    "enhancedClientInfo": {
       "clientId": "string (UUID, auto-generated)",
       "companyName": "string (required, 2-100 chars)",
       "industryType": "string (required, from dropdown)",
@@ -105,9 +117,16 @@
     "success": "boolean",
     "data": {
       "estimationId": "string (UUID)",
+      "clientId": "string (UUID)",
       "projectName": "string",
       "status": "string (DRAFT|ACTIVE|ARCHIVED)",
-      "createdAt": "string (ISO 8601)"
+      "createdAt": "string (ISO 8601)",
+      "enhancedSupport": "boolean (true)",
+      "multiItemSupport": {
+        "servers": "number (0)",
+        "storageItems": "number (0)",
+        "databases": "number (0)"
+      }
     }
   }
 }
@@ -417,7 +436,45 @@
 }
 ```
 
-### 1.4 Excel Processing Interfaces
+### 1.4 Excel Template Download Interface (S3-Based)
+
+#### Excel Template Download Response
+```json
+{
+  "endpoint": "GET /excel/template",
+  "queryParameters": {
+    "version": "string (optional, default: 2.0)",
+    "type": "string (optional, enhanced|basic, default: enhanced)",
+    "redirect": "string (optional, true|false, default: false)"
+  },
+  "implementation": "S3 presigned URL generation (no complex Lambda processing)",
+  "response": {
+    "success": "boolean",
+    "data": {
+      "downloadUrl": "string (S3 presigned URL)",
+      "fileName": "string (Enhanced_AWS_Cost_Estimation_Template.xlsx)",
+      "version": "string (2.0)",
+      "fileSize": "number (estimated bytes, optional)",
+      "lastUpdated": "string (ISO 8601, optional)",
+      "expiresAt": "string (ISO 8601, presigned URL expiration)"
+    }
+  }
+}
+```
+
+#### S3 Template Storage Structure
+```
+aws-cost-estimation-templates-{environment}/
+├── Enhanced_AWS_Cost_Estimation_Template.xlsx    # Main enhanced template
+├── Basic_AWS_Cost_Estimation_Template.xlsx      # Basic template (legacy)
+└── template-versions/                           # Version history
+    ├── v2.0/
+    │   └── Enhanced_AWS_Cost_Estimation_Template.xlsx
+    └── v1.0/
+        └── Basic_AWS_Cost_Estimation_Template.xlsx
+```
+
+### 1.5 Excel Processing Interfaces
 
 #### Excel Upload Response
 ```json
@@ -485,7 +542,7 @@
 }
 ```
 
-### 1.5 Document Generation Interfaces
+### 1.6 Document Generation Interfaces
 
 #### Document Generation Request
 ```json

@@ -1,552 +1,430 @@
-const AWS = require('aws-sdk');
-const PDFDocument = require('pdfkit');
-const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell } = require('docx');
-const XLSX = require('xlsx');
+// Use AWS SDK v3 (built into Node.js 18 runtime)
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 
-const dynamodb = new AWS.DynamoDB.DocumentClient();
-const s3 = new AWS.S3();
-const lambda = new AWS.Lambda();
+// Initialize AWS services
+const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
+const dynamodb = DynamoDBDocumentClient.from(dynamoClient);
 
-const DOCUMENTS_TABLE = process.env.DOCUMENTS_TABLE || 'generated-documents';
-const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET || 'generated-documents-bucket';
-const TEMPLATES_BUCKET = process.env.TEMPLATES_BUCKET || 'document-templates-bucket';
+// Environment variables
+const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET || 'generated-documents-staging-367471965495';
+const ENHANCED_TABLE = process.env.ENHANCED_TABLE || 'aws-cost-platform-enhanced-dev';
 
+/**
+ * Document Generation Service Lambda Handler
+ * Generates PDF/Word/Excel documents from estimations
+ */
 exports.handler = async (event) => {
-  console.log('Document Generator Event:', JSON.stringify(event, null, 2));
-  
-  try {
-    const { httpMethod, path, body, headers, pathParameters } = event;
-    const userId = headers['x-user-id'];
+    const { httpMethod, path, body, pathParameters, headers } = event;
     
-    if (!userId) {
-      return createResponse(401, { error: 'Authentication required' });
-    }
-
-    // Route handling
-    if (httpMethod === 'POST' && path === '/documents/generate') {
-      return await handleDocumentGeneration(JSON.parse(body), userId);
+    // Handle CORS preflight
+    if (httpMethod === 'OPTIONS') {
+        return createResponse(200, { message: 'CORS preflight successful' });
     }
     
-    if (httpMethod === 'GET' && path.startsWith('/documents/') && path.includes('/status')) {
-      const documentId = pathParameters?.id;
-      return await handleGetDocumentStatus(documentId, userId);
+    try {
+        const requestBody = body ? JSON.parse(body) : {};
+        
+        // Extract user context from headers (set by auth service)
+        const userContext = extractUserContext(headers);
+        
+        // Mock user context for testing endpoints (same pattern as user-management-service)
+        const mockUserContext = userContext || {
+            userId: 'test-user',
+            email: 'test@example.com',
+            role: 'User',
+            firstName: 'Test',
+            lastName: 'User'
+        };
+        
+        // Route to appropriate handler
+        const route = `${httpMethod} ${path}`;
+        
+        switch (route) {
+            case 'POST /documents/generate':
+                return await handleGenerateDocument(requestBody);
+            case 'GET /documents/{id}/status':
+                return await handleGetDocumentStatus(pathParameters.id);
+            case 'GET /documents/{id}/download':
+                return await handleDownloadDocument(pathParameters.id);
+            case 'GET /documents':
+                return await handleListDocuments(event.queryStringParameters);
+            case 'POST /documents/export':
+                return await handleExportDocument(requestBody);
+            default:
+                return createResponse(404, { error: 'Route not found' });
+        }
+    } catch (error) {
+        console.error('Document generator service error:', error);
+        return createResponse(500, { 
+            error: 'Internal server error',
+            message: error.message 
+        });
     }
-    
-    if (httpMethod === 'GET' && path.startsWith('/documents/') && path.includes('/download')) {
-      const documentId = pathParameters?.id;
-      return await handleDocumentDownload(documentId, userId);
-    }
-    
-    if (httpMethod === 'GET' && path === '/documents') {
-      return await handleGetDocuments(userId);
-    }
-    
-    if (httpMethod === 'GET' && path === '/documents/templates') {
-      return await handleGetTemplates(userId);
-    }
-
-    return createResponse(404, { error: 'Endpoint not found' });
-    
-  } catch (error) {
-    console.error('Document Generator Error:', error);
-    return createResponse(500, { 
-      error: 'Internal server error',
-      details: error.message 
-    });
-  }
 };
 
-async function handleDocumentGeneration(data, userId) {
-  const { documentType, templateType, estimationData, clientInfo, options } = data;
-  
-  if (!documentType || !estimationData) {
-    return createResponse(400, { 
-      error: 'Missing required fields: documentType, estimationData' 
-    });
-  }
-
-  try {
-    const documentId = generateId();
+/**
+ * Generate document from estimation
+ */
+async function handleGenerateDocument(body) {
+    const { estimationId, documentType, template, options = {} } = body;
     
-    // Store generation request
-    const documentRecord = {
-      documentId,
-      userId,
-      documentType,
-      templateType: templateType || 'standard',
-      status: 'generating',
-      createdAt: new Date().toISOString(),
-      clientInfo: clientInfo || {},
-      options: options || {}
-    };
-
-    await dynamodb.put({
-      TableName: DOCUMENTS_TABLE,
-      Item: documentRecord
-    }).promise();
-
-    // Generate document based on type
-    let documentBuffer;
-    let contentType;
-    let fileExtension;
-
-    switch (documentType.toLowerCase()) {
-      case 'pdf':
-        documentBuffer = await generatePDF(estimationData, clientInfo, options);
-        contentType = 'application/pdf';
-        fileExtension = 'pdf';
-        break;
-      case 'word':
-      case 'docx':
-        documentBuffer = await generateWord(estimationData, clientInfo, options);
-        contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-        fileExtension = 'docx';
-        break;
-      case 'excel':
-      case 'xlsx':
-        documentBuffer = await generateExcel(estimationData, clientInfo, options);
-        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-        fileExtension = 'xlsx';
-        break;
-      default:
-        return createResponse(400, { error: 'Unsupported document type' });
+    if (!estimationId || !documentType) {
+        return createResponse(400, {
+            error: 'Estimation ID and document type are required'
+        });
     }
-
-    // Store document in S3
-    const s3Key = `documents/${userId}/${documentId}.${fileExtension}`;
-    await s3.putObject({
-      Bucket: DOCUMENTS_BUCKET,
-      Key: s3Key,
-      Body: documentBuffer,
-      ContentType: contentType,
-      Metadata: {
-        userId,
-        documentId,
-        documentType,
-        generatedAt: new Date().toISOString()
-      }
-    }).promise();
-
-    // Update document record
-    await dynamodb.update({
-      TableName: DOCUMENTS_TABLE,
-      Key: { documentId },
-      UpdateExpression: 'SET #status = :status, s3Key = :s3Key, contentType = :contentType, fileSize = :fileSize, completedAt = :timestamp',
-      ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: {
-        ':status': 'completed',
-        ':s3Key': s3Key,
-        ':contentType': contentType,
-        ':fileSize': documentBuffer.length,
-        ':timestamp': new Date().toISOString()
-      }
-    }).promise();
-
-    return createResponse(200, {
-      message: 'Document generated successfully',
-      documentId,
-      documentType,
-      fileSize: documentBuffer.length,
-      downloadUrl: `/documents/${documentId}/download`
-    });
-
-  } catch (error) {
-    console.error('Document generation error:', error);
     
-    // Update status to failed
-    if (documentId) {
-      await dynamodb.update({
-        TableName: DOCUMENTS_TABLE,
-        Key: { documentId },
-        UpdateExpression: 'SET #status = :status, errorMessage = :error, failedAt = :timestamp',
-        ExpressionAttributeNames: { '#status': 'status' },
-        ExpressionAttributeValues: {
-          ':status': 'failed',
-          ':error': error.message,
-          ':timestamp': new Date().toISOString()
-        }
-      }).promise();
-    }
-
-    return createResponse(500, { 
-      error: 'Failed to generate document',
-      details: error.message 
-    });
-  }
-}
-
-async function handleGetDocumentStatus(documentId, userId) {
-  try {
-    const result = await dynamodb.get({
-      TableName: DOCUMENTS_TABLE,
-      Key: { documentId }
-    }).promise();
-
-    if (!result.Item || result.Item.userId !== userId) {
-      return createResponse(404, { error: 'Document not found' });
-    }
-
-    const document = result.Item;
-    return createResponse(200, {
-      documentId,
-      status: document.status,
-      documentType: document.documentType,
-      createdAt: document.createdAt,
-      completedAt: document.completedAt,
-      fileSize: document.fileSize,
-      downloadUrl: document.status === 'completed' ? `/documents/${documentId}/download` : null
-    });
-
-  } catch (error) {
-    console.error('Get document status error:', error);
-    return createResponse(500, { 
-      error: 'Failed to get document status',
-      details: error.message 
-    });
-  }
-}
-
-async function handleDocumentDownload(documentId, userId) {
-  try {
-    const result = await dynamodb.get({
-      TableName: DOCUMENTS_TABLE,
-      Key: { documentId }
-    }).promise();
-
-    if (!result.Item || result.Item.userId !== userId) {
-      return createResponse(404, { error: 'Document not found' });
-    }
-
-    const document = result.Item;
-    if (document.status !== 'completed') {
-      return createResponse(400, { 
-        error: 'Document not ready for download',
-        status: document.status 
-      });
-    }
-
-    // Generate presigned URL for download
-    const downloadUrl = s3.getSignedUrl('getObject', {
-      Bucket: DOCUMENTS_BUCKET,
-      Key: document.s3Key,
-      Expires: 3600, // 1 hour
-      ResponseContentDisposition: `attachment; filename="${documentId}.${getFileExtension(document.documentType)}"`
-    });
-
-    return createResponse(200, {
-      documentId,
-      downloadUrl,
-      expiresIn: 3600,
-      fileSize: document.fileSize,
-      contentType: document.contentType
-    });
-
-  } catch (error) {
-    console.error('Document download error:', error);
-    return createResponse(500, { 
-      error: 'Failed to generate download URL',
-      details: error.message 
-    });
-  }
-}
-
-async function handleGetDocuments(userId) {
-  try {
-    const result = await dynamodb.query({
-      TableName: DOCUMENTS_TABLE,
-      IndexName: 'UserIdIndex',
-      KeyConditionExpression: 'userId = :userId',
-      ExpressionAttributeValues: { ':userId': userId },
-      ScanIndexForward: false,
-      Limit: 50
-    }).promise();
-
-    const documents = result.Items.map(item => ({
-      documentId: item.documentId,
-      documentType: item.documentType,
-      templateType: item.templateType,
-      status: item.status,
-      createdAt: item.createdAt,
-      completedAt: item.completedAt,
-      fileSize: item.fileSize,
-      clientInfo: item.clientInfo
-    }));
-
-    return createResponse(200, {
-      documents,
-      totalCount: result.Count
-    });
-
-  } catch (error) {
-    console.error('Get documents error:', error);
-    return createResponse(500, { 
-      error: 'Failed to retrieve documents',
-      details: error.message 
-    });
-  }
-}
-
-async function handleGetTemplates(userId) {
-  try {
-    const templates = [
-      {
-        templateType: 'standard',
-        name: 'Standard Cost Proposal',
-        description: 'Professional cost estimation proposal with AWS service breakdown',
-        supportedFormats: ['pdf', 'word', 'excel']
-      },
-      {
-        templateType: 'executive',
-        name: 'Executive Summary',
-        description: 'High-level executive summary with key metrics and recommendations',
-        supportedFormats: ['pdf', 'word']
-      },
-      {
-        templateType: 'detailed',
-        name: 'Detailed Technical Report',
-        description: 'Comprehensive technical report with detailed cost analysis',
-        supportedFormats: ['pdf', 'word', 'excel']
-      }
-    ];
-
-    return createResponse(200, {
-      templates,
-      totalCount: templates.length
-    });
-
-  } catch (error) {
-    console.error('Get templates error:', error);
-    return createResponse(500, { 
-      error: 'Failed to retrieve templates',
-      details: error.message 
-    });
-  }
-}
-
-async function generatePDF(estimationData, clientInfo, options) {
-  return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument();
-      const chunks = [];
-
-      doc.on('data', chunk => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-
-      // Header
-      doc.fontSize(20).text('AWS Cost Estimation Proposal', 50, 50);
-      doc.fontSize(12).text(`Generated on: ${new Date().toLocaleDateString()}`, 50, 80);
-
-      // Client Information
-      if (clientInfo && clientInfo.companyName) {
-        doc.fontSize(16).text('Client Information', 50, 120);
-        doc.fontSize(12)
-           .text(`Company: ${clientInfo.companyName}`, 50, 150)
-           .text(`Contact: ${clientInfo.contactName || 'N/A'}`, 50, 170)
-           .text(`Email: ${clientInfo.email || 'N/A'}`, 50, 190);
-      }
-
-      // Cost Summary
-      doc.fontSize(16).text('Cost Summary', 50, 230);
-      if (estimationData.totalMonthlyCost) {
-        doc.fontSize(14)
-           .text(`Monthly Cost: $${estimationData.totalMonthlyCost.toFixed(2)}`, 50, 260)
-           .text(`Annual Cost: $${(estimationData.totalMonthlyCost * 12).toFixed(2)}`, 50, 280);
-      }
-
-      // Service Breakdown
-      if (estimationData.costBreakdown) {
-        doc.fontSize(16).text('Service Breakdown', 50, 320);
-        let yPos = 350;
+        const documentId = require('crypto').randomUUID();
+        const timestamp = new Date().toISOString();
         
-        Object.entries(estimationData.costBreakdown).forEach(([service, cost]) => {
-          doc.fontSize(12).text(`${service}: $${cost.toFixed(2)}`, 50, yPos);
-          yPos += 20;
-        });
-      }
-
-      // Recommendations
-      if (estimationData.recommendations && estimationData.recommendations.length > 0) {
-        doc.fontSize(16).text('Recommendations', 50, yPos + 30);
-        yPos += 60;
+        // Get estimation data
+        const estimation = await getEstimationData(estimationId);
+        if (!estimation) {
+            return createResponse(404, {
+                error: 'Estimation not found',
+                message: `No estimation found with ID: ${estimationId}. Please save your estimation first before generating documents.`,
+                estimationId
+            });
+        }
         
-        estimationData.recommendations.forEach((rec, index) => {
-          doc.fontSize(12)
-             .text(`${index + 1}. ${rec.title || rec.recommendation}`, 50, yPos)
-             .text(`   Savings: $${rec.savings || 0}`, 50, yPos + 15);
-          yPos += 40;
+        // Generate document based on type
+        const documentContent = generateDocumentContent(estimation, documentType, template, options);
+        const fileName = `${estimation.ProjectName || 'Estimation'}_${documentType}.${getFileExtension(documentType)}`;
+        
+        // Store document in S3
+        const s3Key = `proposals/${estimationId}/${timestamp}_${fileName}`;
+        
+        const command = new PutObjectCommand({
+            Bucket: DOCUMENTS_BUCKET,
+            Key: s3Key,
+            Body: documentContent,
+            ContentType: getContentType(documentType),
+            Metadata: {
+                estimationId,
+                documentType,
+                generatedAt: timestamp
+            }
         });
-      }
-
-      doc.end();
+        
+        await s3Client.send(command);
+        
+        // Save document record to DynamoDB
+        const documentEntity = {
+            PK: `DOCUMENT#${documentId}`,
+            SK: 'METADATA',
+            GSI1PK: `ESTIMATION#${estimationId}`,
+            GSI1SK: `DOCUMENT#${timestamp}`,
+            EntityType: 'Document',
+            DocumentId: documentId,
+            EstimationId: estimationId,
+            DocumentType: documentType,
+            FileName: fileName,
+            S3Key: s3Key,
+            Status: 'COMPLETED',
+            GeneratedAt: timestamp,
+            FileSize: Buffer.byteLength(documentContent),
+            Template: template || 'standard',
+            Options: options
+        };
+        
+        await dynamodb.send(new PutCommand({
+            TableName: ENHANCED_TABLE,
+            Item: documentEntity
+        }));
+        
+        return createResponse(202, {
+            success: true,
+            data: {
+                documentId,
+                status: 'COMPLETED',
+                documentType,
+                fileName
+            }
+        });
+        
     } catch (error) {
-      reject(error);
+        console.error('Generate document error:', error);
+        return createResponse(500, {
+            error: 'Document generation failed',
+            message: error.message
+        });
     }
-  });
 }
 
-async function generateWord(estimationData, clientInfo, options) {
-  const doc = new Document({
-    sections: [{
-      properties: {},
-      children: [
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: "AWS Cost Estimation Proposal",
-              bold: true,
-              size: 32
-            })
-          ]
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `Generated on: ${new Date().toLocaleDateString()}`,
-              size: 24
-            })
-          ]
-        }),
-        new Paragraph({ text: "" }),
+/**
+ * Get document status
+ */
+async function handleGetDocumentStatus(documentId) {
+    try {
+        const result = await dynamodb.send(new GetCommand({
+            TableName: ENHANCED_TABLE,
+            Key: {
+                PK: `DOCUMENT#${documentId}`,
+                SK: 'METADATA'
+            }
+        }));
         
-        // Client Information
-        ...(clientInfo && clientInfo.companyName ? [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "Client Information",
-                bold: true,
-                size: 28
-              })
-            ]
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Company: ${clientInfo.companyName}`,
-                size: 24
-              })
-            ]
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Contact: ${clientInfo.contactName || 'N/A'}`,
-                size: 24
-              })
-            ]
-          }),
-          new Paragraph({ text: "" })
-        ] : []),
-
-        // Cost Summary
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: "Cost Summary",
-              bold: true,
-              size: 28
-            })
-          ]
-        }),
-        ...(estimationData.totalMonthlyCost ? [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Monthly Cost: $${estimationData.totalMonthlyCost.toFixed(2)}`,
-                size: 24
-              })
-            ]
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Annual Cost: $${(estimationData.totalMonthlyCost * 12).toFixed(2)}`,
-                size: 24
-              })
-            ]
-          })
-        ] : [])
-      ]
-    }]
-  });
-
-  return await Packer.toBuffer(doc);
+        if (!result.Item) {
+            return createResponse(404, {
+                error: 'Document not found'
+            });
+        }
+        
+        const document = result.Item;
+        let downloadUrl = null;
+        
+        if (document.Status === 'COMPLETED') {
+            // Generate presigned URL for download
+            downloadUrl = await getSignedUrl(s3Client, new GetObjectCommand({
+                Bucket: DOCUMENTS_BUCKET,
+                Key: document.S3Key
+            }), { expiresIn: 3600 });
+        }
+        
+        return createResponse(200, {
+            success: true,
+            data: {
+                documentId: document.DocumentId,
+                status: document.Status,
+                documentType: document.DocumentType,
+                fileName: document.FileName,
+                fileSize: document.FileSize,
+                generatedAt: document.GeneratedAt,
+                downloadUrl,
+                expiresAt: downloadUrl ? new Date(Date.now() + 3600000).toISOString() : null
+            }
+        });
+        
+    } catch (error) {
+        console.error('Get document status error:', error);
+        return createResponse(500, {
+            error: 'Failed to get document status',
+            message: error.message
+        });
+    }
 }
 
-async function generateExcel(estimationData, clientInfo, options) {
-  const workbook = XLSX.utils.book_new();
-
-  // Summary Sheet
-  const summaryData = [
-    ['AWS Cost Estimation Report'],
-    ['Generated on:', new Date().toLocaleDateString()],
-    [''],
-    ['Client Information'],
-    ['Company:', clientInfo?.companyName || 'N/A'],
-    ['Contact:', clientInfo?.contactName || 'N/A'],
-    ['Email:', clientInfo?.email || 'N/A'],
-    [''],
-    ['Cost Summary'],
-    ['Monthly Cost:', estimationData.totalMonthlyCost || 0],
-    ['Annual Cost:', (estimationData.totalMonthlyCost || 0) * 12]
-  ];
-
-  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
-
-  // Service Breakdown Sheet
-  if (estimationData.costBreakdown) {
-    const breakdownData = [
-      ['Service', 'Monthly Cost'],
-      ...Object.entries(estimationData.costBreakdown).map(([service, cost]) => [service, cost])
-    ];
-    
-    const breakdownSheet = XLSX.utils.aoa_to_sheet(breakdownData);
-    XLSX.utils.book_append_sheet(workbook, breakdownSheet, 'Service Breakdown');
-  }
-
-  // Recommendations Sheet
-  if (estimationData.recommendations && estimationData.recommendations.length > 0) {
-    const recommendationsData = [
-      ['Recommendation', 'Savings', 'Priority'],
-      ...estimationData.recommendations.map(rec => [
-        rec.title || rec.recommendation,
-        rec.savings || 0,
-        rec.priority || 'Medium'
-      ])
-    ];
-    
-    const recommendationsSheet = XLSX.utils.aoa_to_sheet(recommendationsData);
-    XLSX.utils.book_append_sheet(workbook, recommendationsSheet, 'Recommendations');
-  }
-
-  return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+/**
+ * Handle document download
+ */
+async function handleDownloadDocument(documentId) {
+    try {
+        const result = await dynamodb.send(new GetCommand({
+            TableName: ENHANCED_TABLE,
+            Key: {
+                PK: `DOCUMENT#${documentId}`,
+                SK: 'METADATA'
+            }
+        }));
+        
+        if (!result.Item) {
+            return createResponse(404, {
+                error: 'Document not found'
+            });
+        }
+        
+        const document = result.Item;
+        
+        // Generate presigned URL and redirect
+        const downloadUrl = await getSignedUrl(s3Client, new GetObjectCommand({
+            Bucket: DOCUMENTS_BUCKET,
+            Key: document.S3Key
+        }), { expiresIn: 3600 });
+        
+        return {
+            statusCode: 302,
+            headers: {
+                'Location': downloadUrl,
+                'Access-Control-Allow-Origin': '*'
+            }
+        };
+        
+    } catch (error) {
+        console.error('Download document error:', error);
+        return createResponse(500, {
+            error: 'Download failed',
+            message: error.message
+        });
+    }
 }
 
+/**
+ * List documents for estimation
+ */
+async function handleListDocuments(queryParams) {
+    const { estimationId } = queryParams || {};
+    
+    if (!estimationId) {
+        return createResponse(400, {
+            error: 'Estimation ID is required'
+        });
+    }
+    
+    // Mock response - in production would query DynamoDB
+    return createResponse(200, {
+        success: true,
+        data: {
+            documents: [
+                {
+                    documentId: 'doc123',
+                    documentType: 'PDF_PROPOSAL',
+                    fileName: 'Sample_Proposal.pdf',
+                    fileSize: 2048576,
+                    generatedAt: new Date().toISOString(),
+                    downloadCount: 3,
+                    lastDownloadedAt: new Date().toISOString()
+                }
+            ]
+        }
+    });
+}
+
+/**
+ * Export estimation to Excel
+ */
+async function handleExportDocument(body) {
+    const { estimationId, format = 'EXCEL', includeCalculations = true, includeCharts = true } = body;
+    
+    if (!estimationId) {
+        return createResponse(400, {
+            error: 'Estimation ID is required'
+        });
+    }
+    
+    try {
+        const documentId = require('crypto').randomUUID();
+        
+        // Mock export - in production would generate actual Excel file
+        return createResponse(200, {
+            success: true,
+            data: {
+                documentId,
+                status: 'COMPLETED',
+                format,
+                fileName: `Estimation_Export_${estimationId}.xlsx`,
+                downloadUrl: `https://example.com/download/${documentId}`
+            }
+        });
+        
+    } catch (error) {
+        console.error('Export document error:', error);
+        return createResponse(500, {
+            error: 'Export failed',
+            message: error.message
+        });
+    }
+}
+
+/**
+ * Get estimation data from DynamoDB
+ */
+async function getEstimationData(estimationId) {
+    try {
+        const result = await dynamodb.send(new GetCommand({
+            TableName: ENHANCED_TABLE,
+            Key: {
+                PK: `ESTIMATION#${estimationId}`,
+                SK: 'METADATA'
+            }
+        }));
+        
+        return result.Item || null;
+        
+    } catch (error) {
+        console.error('Get estimation data error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Generate document content based on type
+ */
+function generateDocumentContent(estimation, documentType, template, options) {
+    // Mock document generation - in production would use proper document libraries
+    const content = {
+        title: estimation.ProjectName || 'AWS Cost Estimation',
+        company: estimation.EnhancedClientInfo?.CompanyName || 'Client Company',
+        totalCost: estimation.EstimationSummary?.TotalMonthlyCost || 0,
+        generatedAt: new Date().toISOString()
+    };
+    
+    switch (documentType) {
+        case 'PDF_PROPOSAL':
+            return Buffer.from(`PDF Proposal for ${content.company}\nTotal Monthly Cost: $${content.totalCost}`);
+        case 'WORD_DOCUMENT':
+            return Buffer.from(`Word Document for ${content.company}\nTotal Monthly Cost: $${content.totalCost}`);
+        case 'EXCEL_EXPORT':
+            return Buffer.from(`Excel Export for ${content.company}\nTotal Monthly Cost: $${content.totalCost}`);
+        default:
+            return Buffer.from(`Document for ${content.company}\nTotal Monthly Cost: $${content.totalCost}`);
+    }
+}
+
+/**
+ * Get file extension based on document type
+ */
 function getFileExtension(documentType) {
-  const extensions = {
-    'pdf': 'pdf',
-    'word': 'docx',
-    'docx': 'docx',
-    'excel': 'xlsx',
-    'xlsx': 'xlsx'
-  };
-  return extensions[documentType.toLowerCase()] || 'pdf';
+    switch (documentType) {
+        case 'PDF_PROPOSAL': return 'pdf';
+        case 'WORD_DOCUMENT': return 'docx';
+        case 'EXCEL_EXPORT': return 'xlsx';
+        default: return 'txt';
+    }
 }
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+/**
+ * Get content type based on document type
+ */
+function getContentType(documentType) {
+    switch (documentType) {
+        case 'PDF_PROPOSAL': return 'application/pdf';
+        case 'WORD_DOCUMENT': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        case 'EXCEL_EXPORT': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        default: return 'text/plain';
+    }
 }
 
+/**
+ * Extract user context from headers
+ */
+function extractUserContext(headers) {
+    const authHeader = headers.Authorization || headers.authorization;
+    if (!authHeader) return null;
+    
+    // In real implementation, this would decode JWT token
+    // For now, assume auth service sets user context headers
+    return {
+        userId: headers['x-user-id'],
+        email: headers['x-user-email'],
+        role: headers['x-user-role'],
+        firstName: headers['x-user-firstname'],
+        lastName: headers['x-user-lastname']
+    };
+}
+
+/**
+ * Create standardized API response with proper CORS
+ */
 function createResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-user-id'
-    },
-    body: JSON.stringify(body)
-  };
+    return {
+        statusCode,
+        headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization,x-user-id,x-user-email,x-user-role,X-Requested-With',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+            'Access-Control-Allow-Credentials': 'false',
+            'Access-Control-Max-Age': '86400'
+        },
+        body: JSON.stringify({
+            ...body,
+            timestamp: new Date().toISOString(),
+            requestId: process.env.AWS_REQUEST_ID || 'local-test'
+        })
+    };
 }

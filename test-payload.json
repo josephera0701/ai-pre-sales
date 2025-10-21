@@ -1,0 +1,11 @@
+{
+  "httpMethod": "POST",
+  "path": "/estimations",
+  "body": "{\"projectName\":\"Test Project\",\"description\":\"Test\",\"inputMethod\":\"MANUAL_ENTRY\",\"enhancedClientInfo\":{\"companyName\":\"Test Company\",\"industryType\":\"Technology\",\"primaryContactEmail\":\"test@example.com\"}}",
+  "headers": {
+    "x-user-id": "test-user",
+    "x-user-email": "test@example.com",
+    "x-user-role": "User",
+    "Content-Type": "application/json"
+  }
+}

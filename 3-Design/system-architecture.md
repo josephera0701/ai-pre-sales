@@ -200,7 +200,71 @@ exports.handler = async (event) => {
 };
 ```
 
-##### 2. Excel Processing Function
+##### 2. Excel Template Download Function (S3-Based)
+```javascript
+// excel-template-download-lambda
+exports.handler = async (event) => {
+    const templateVersion = event.queryStringParameters?.version || '2.0';
+    const templateType = event.queryStringParameters?.type || 'enhanced';
+    
+    // Determine template file based on parameters
+    const templateFileName = templateType === 'enhanced' 
+        ? 'Enhanced_AWS_Cost_Estimation_Template.xlsx'
+        : 'Basic_AWS_Cost_Estimation_Template.xlsx';
+    
+    const s3Key = `templates/${templateFileName}`;
+    
+    try {
+        // Generate presigned URL for direct S3 download
+        const presignedUrl = await generatePresignedUrl({
+            Bucket: process.env.TEMPLATES_BUCKET,
+            Key: s3Key,
+            Expires: 3600 // 1 hour expiration
+        });
+        
+        // Return redirect response or presigned URL
+        if (event.queryStringParameters?.redirect === 'true') {
+            return {
+                statusCode: 302,
+                headers: {
+                    'Location': presignedUrl,
+                    'Cache-Control': 'no-cache'
+                }
+            };
+        } else {
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'max-age=300' // 5 minutes cache
+                },
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        downloadUrl: presignedUrl,
+                        fileName: templateFileName,
+                        version: templateVersion,
+                        expiresAt: new Date(Date.now() + 3600000).toISOString()
+                    }
+                })
+            };
+        }
+    } catch (error) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                success: false,
+                error: {
+                    code: 'TEMPLATE_DOWNLOAD_ERROR',
+                    message: 'Failed to generate download URL for template'
+                }
+            })
+        };
+    }
+};
+```
+
+##### 3. Excel Processing Function
 ```javascript
 // excel-processor-lambda
 exports.handler = async (event) => {
@@ -231,7 +295,7 @@ exports.handler = async (event) => {
 };
 ```
 
-##### 3. Document Generation Function
+##### 4. Document Generation Function
 ```javascript
 // document-generator-lambda
 exports.handler = async (event) => {
@@ -264,7 +328,7 @@ exports.handler = async (event) => {
 };
 ```
 
-##### 4. Validation Rules Function
+##### 5. Validation Rules Function
 ```javascript
 // validation-rules-lambda
 exports.handler = async (event) => {
@@ -280,7 +344,7 @@ exports.handler = async (event) => {
 };
 ```
 
-##### 5. Dropdown Lists Function
+##### 6. Dropdown Lists Function
 ```javascript
 // dropdown-lists-lambda
 exports.handler = async (event) => {
@@ -296,7 +360,7 @@ exports.handler = async (event) => {
 };
 ```
 
-##### 6. Service Recommendations Function
+##### 7. Service Recommendations Function
 ```javascript
 // service-recommendations-lambda
 exports.handler = async (event) => {
@@ -323,11 +387,14 @@ exports.handler = async (event) => {
 
 #### Enhanced Function Configuration
 - **Runtime:** Node.js 18.x
-- **Memory:** 1024MB (excel processor), 512MB (cost calculator), 1024MB (document generator), 256MB (others)
-- **Timeout:** 60 seconds (excel processing), 30 seconds (document generation), 10 seconds (others)
+- **Memory:** 1024MB (excel processor), 512MB (cost calculator), 1024MB (document generator), 256MB (template download), 256MB (others)
+- **Timeout:** 60 seconds (excel processing), 30 seconds (document generation), 10 seconds (template download), 10 seconds (others)
 - **Environment Variables:** Encrypted with KMS
+  - `TEMPLATES_BUCKET`: S3 bucket containing Excel templates
+  - `TEMPLATES_BUCKET_REGION`: S3 bucket region
 - **VPC:** No VPC (for better cold start performance)
 - **Provisioned Concurrency:** 2 instances for cost calculator, 1 instance for excel processor during business hours
+- **S3 Permissions:** GetObject permission for templates bucket
 
 ### 2.4 Data Architecture
 
@@ -441,6 +508,12 @@ aws-cost-estimation-platform/
 │   └── templates/
 ├── uploads/                     # Excel file uploads
 │   └── temp/                    # Temporary files (auto-delete after 24h)
+├── templates/                   # Excel templates (static)
+│   ├── Enhanced_AWS_Cost_Estimation_Template.xlsx
+│   ├── Basic_AWS_Cost_Estimation_Template.xlsx
+│   └── template-versions/
+│       ├── v2.0/
+│       └── v1.0/
 └── backups/                     # Data backups
     ├── estimations/
     └── user-data/

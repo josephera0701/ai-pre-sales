@@ -4,7 +4,21 @@
 - **Project:** AWS Cost Estimation Platform for Sagesoft Solutions Inc.
 - **Phase:** 3 - System Design
 - **Date:** 2024-01-15
-- **Version:** 1.0
+- **Version:** 2.0 - Enhanced for 200+ Field Support
+
+## ⚠️ SCHEMA UPDATE REQUIRED
+
+**Current Status:** Database schema does NOT match the enhanced Excel template implementation
+
+**Gaps Identified:**
+- ❌ Missing 200+ enhanced fields from Excel template
+- ❌ No UUID-based entity relationships
+- ❌ Missing validation rules and dropdown lists tables
+- ❌ No service mapping and optimization recommendations
+- ❌ Limited multi-item support structure
+- ❌ No auto-calculation field support
+
+**Action Required:** Complete schema redesign to support enhanced Manual Entry UI
 
 ## 1. Database Design Overview
 
@@ -23,15 +37,15 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
 5. **Document Storage:** Get documents by estimation ID
 6. **Sharing:** Get shared estimations by user
 
-## 2. DynamoDB Table Designs
+## 2. Enhanced DynamoDB Table Design (200+ Field Support)
 
-### 2.1 Main Application Table (Single Table Design)
+### 2.1 Main Application Table (Enhanced Single Table Design)
 
-#### Table: `aws-cost-platform`
+#### Table: `aws-cost-platform-enhanced`
 
 ```json
 {
-  "TableName": "aws-cost-platform",
+  "TableName": "aws-cost-platform-enhanced",
   "BillingMode": "ON_DEMAND",
   "AttributeDefinitions": [
     { "AttributeName": "PK", "AttributeType": "S" },
@@ -39,7 +53,9 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
     { "AttributeName": "GSI1PK", "AttributeType": "S" },
     { "AttributeName": "GSI1SK", "AttributeType": "S" },
     { "AttributeName": "GSI2PK", "AttributeType": "S" },
-    { "AttributeName": "GSI2SK", "AttributeType": "S" }
+    { "AttributeName": "GSI2SK", "AttributeType": "S" },
+    { "AttributeName": "GSI3PK", "AttributeType": "S" },
+    { "AttributeName": "GSI3SK", "AttributeType": "S" }
   ],
   "KeySchema": [
     { "AttributeName": "PK", "KeyType": "HASH" },
@@ -61,6 +77,14 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
         { "AttributeName": "GSI2SK", "KeyType": "RANGE" }
       ],
       "Projection": { "ProjectionType": "ALL" }
+    },
+    {
+      "IndexName": "GSI3",
+      "KeySchema": [
+        { "AttributeName": "GSI3PK", "KeyType": "HASH" },
+        { "AttributeName": "GSI3SK", "KeyType": "RANGE" }
+      ],
+      "Projection": { "ProjectionType": "ALL" }
     }
   ],
   "StreamSpecification": {
@@ -72,7 +96,7 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
   },
   "SSESpecification": {
     "SSEEnabled": true,
-    "KMSMasterKeyId": "alias/aws-cost-platform-key"
+    "KMSMasterKeyId": "alias/aws-cost-platform-enhanced-key"
   }
 }
 ```
@@ -112,7 +136,7 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
 }
 ```
 
-#### 2.2.2 Estimation Entity
+#### 2.2.2 Enhanced Estimation Entity (200+ Fields)
 
 ```json
 {
@@ -122,25 +146,35 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
   "GSI1SK": "ESTIMATION#2024-01-15T10:00:00Z",
   "GSI2PK": "STATUS#ACTIVE",
   "GSI2SK": "ESTIMATION#est456",
+  "GSI3PK": "CLIENT#client789",
+  "GSI3SK": "ESTIMATION#est456",
   "EntityType": "Estimation",
   "EstimationId": "est456",
+  "ClientId": "client789",
   "UserId": "user123",
   "ProjectName": "Client ABC Infrastructure",
   "Description": "AWS infrastructure cost estimation for Client ABC",
   "Status": "ACTIVE",
-  "InputMethod": "EXCEL_UPLOAD",
+  "InputMethod": "MANUAL_ENTRY",
   "CreatedAt": "2024-01-15T10:00:00Z",
   "UpdatedAt": "2024-01-15T10:30:00Z",
-  "ClientInfo": {
+  "EnhancedClientInfo": {
     "CompanyName": "ABC Corporation",
-    "Industry": "E-commerce",
-    "PrimaryContact": "Jane Smith",
-    "Email": "jane.smith@abc.com",
-    "Phone": "+1-555-0123",
-    "Timeline": "Q2 2024",
-    "BudgetRange": "50000-100000",
-    "RegionPreference": ["us-east-1", "us-west-2"],
-    "ComplianceRequirements": ["SOC2", "PCI-DSS"]
+    "IndustryType": "E-commerce",
+    "CompanySize": "Enterprise",
+    "PrimaryContactName": "Jane Smith",
+    "PrimaryContactEmail": "jane.smith@abc.com",
+    "PrimaryContactPhone": "+1-555-0123",
+    "TechnicalContactName": "John Doe",
+    "TechnicalContactEmail": "john.doe@abc.com",
+    "ProjectTimelineMonths": 12,
+    "BudgetRange": "$100K-$500K",
+    "PrimaryAwsRegion": "us-east-1",
+    "SecondaryAwsRegions": ["us-west-2", "eu-west-1"],
+    "ComplianceRequirements": ["SOC2", "PCI-DSS", "GDPR"],
+    "BusinessCriticality": "High",
+    "DisasterRecoveryRequired": true,
+    "MultiRegionRequired": true
   },
   "EstimationSummary": {
     "TotalMonthlyCost": 8500.00,
@@ -153,6 +187,12 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
       "Database": 2000.00,
       "Network": 500.00,
       "Security": 300.00
+    },
+    "OptimizationSavingsPotential": {
+      "ReservedInstanceSavings": 1800.00,
+      "SpotInstanceSavings": 900.00,
+      "SavingsPlanSavings": 1200.00,
+      "TotalPotentialSavings": 3900.00
     }
   },
   "SharedWith": ["user789", "user101"],
@@ -161,7 +201,7 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
 }
 ```
 
-#### 2.2.3 Estimation Requirements Entity
+#### 2.2.3 Enhanced Multi-Item Requirements Entity
 
 ```json
 {
@@ -169,73 +209,184 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
   "SK": "REQUIREMENTS",
   "EntityType": "EstimationRequirements",
   "EstimationId": "est456",
-  "ComputeRequirements": [
-    {
-      "ServerName": "Web Server",
-      "Environment": "Production",
-      "CPUCores": 4,
-      "RAMGB": 16,
-      "OS": "Linux",
-      "Criticality": "High",
-      "UtilizationPercent": 70,
-      "PeakUtilizationPercent": 95,
-      "ScalingType": "Auto",
-      "MinInstances": 2,
-      "MaxInstances": 10,
-      "SuggestedInstanceType": "t3.xlarge",
-      "MonthlyHours": 744,
-      "Notes": "Frontend web servers"
-    }
-  ],
-  "StorageRequirements": [
-    {
-      "StorageType": "Application Data",
-      "CurrentGB": 500,
-      "GrowthRatePercent": 10,
-      "IOPSRequired": 3000,
-      "ThroughputMBps": 250,
-      "BackupRequired": true,
-      "RetentionDays": 30,
-      "AccessPattern": "Frequent",
-      "SuggestedAWSService": "EBS gp3"
-    }
-  ],
-  "NetworkRequirements": {
-    "DataTransferOutGBMonth": 1000,
-    "PeakBandwidthMbps": 2000,
-    "LoadBalancerCount": 1,
-    "SSLCertificateRequired": true,
-    "WAFRequired": true,
-    "DDoSProtectionRequired": false,
-    "GlobalDistributionRequired": true
-  },
-  "DatabaseRequirements": [
-    {
-      "DatabaseName": "Primary DB",
-      "Engine": "MySQL",
-      "Version": "8.0",
-      "SizeGB": 500,
-      "InstanceClass": "db.r5.xlarge",
-      "MultiAZ": true,
-      "ReadReplicas": 2,
-      "BackupRetention": 30,
-      "EncryptionEnabled": true
-    }
-  ],
-  "SecurityRequirements": {
-    "AWSConfig": true,
-    "CloudTrail": true,
-    "GuardDuty": true,
-    "SecurityHub": false,
-    "Inspector": false,
-    "Macie": false,
-    "KMS": true,
-    "SecretsManager": true
-  }
+  "ClientId": "client789"
 }
 ```
 
-#### 2.2.4 Cost Calculation Entity
+#### 2.2.4 Individual Server Entity (Multi-Item Support)
+
+```json
+{
+  "PK": "ESTIMATION#est456",
+  "SK": "SERVER#srv001",
+  "GSI3PK": "SERVER#srv001",
+  "GSI3SK": "ESTIMATION#est456",
+  "EntityType": "ComputeServer",
+  "ServerId": "srv001",
+  "EstimationId": "est456",
+  "ClientId": "client789",
+  "ServerName": "Web Server 1",
+  "EnvironmentType": "Production",
+  "WorkloadType": "Web",
+  "CPUCores": 4,
+  "RAMGB": 16,
+  "OperatingSystem": "Amazon_Linux",
+  "Architecture": "x86_64",
+  "BusinessCriticality": "High",
+  "AverageUtilizationPercent": 70,
+  "PeakUtilizationPercent": 95,
+  "ScalingType": "Auto",
+  "MinInstances": 2,
+  "MaxInstances": 10,
+  "MonthlyRuntimeHours": 744,
+  "StorageType": "EBS_GP3",
+  "RootVolumeSizeGB": 100,
+  "AdditionalStorageGB": 500,
+  "NetworkPerformance": "High",
+  "PlacementGroupRequired": false,
+  "DedicatedTenancyRequired": false,
+  "HibernationSupportRequired": false,
+  "SuggestedInstanceType": "t3.xlarge",
+  "EstimatedMonthlyCost": 247.42,
+  "OptimizationRecommendations": ["Consider Reserved Instances", "Enable detailed monitoring"]
+}
+```
+
+#### 2.2.5 Individual Storage Entity (Multi-Item Support)
+
+```json
+{
+  "PK": "ESTIMATION#est456",
+  "SK": "STORAGE#sto001",
+  "GSI3PK": "STORAGE#sto001",
+  "GSI3SK": "ESTIMATION#est456",
+  "EntityType": "StorageItem",
+  "StorageId": "sto001",
+  "EstimationId": "est456",
+  "ClientId": "client789",
+  "StorageName": "Application Data Storage",
+  "StoragePurpose": "Application_Data",
+  "CurrentSizeGB": 500,
+  "ProjectedGrowthRatePercent": 20,
+  "ProjectedSize12MonthsGB": 600,
+  "AccessPattern": "Frequent",
+  "IOPSRequired": 3000,
+  "ThroughputMbpsRequired": 250,
+  "DurabilityRequirement": "High",
+  "AvailabilityRequirement": "High",
+  "EncryptionRequired": true,
+  "BackupRequired": true,
+  "BackupFrequency": "Daily",
+  "BackupRetentionDays": 30,
+  "CrossRegionReplication": true,
+  "VersioningRequired": false,
+  "LifecycleManagementRequired": true,
+  "ComplianceRequirements": ["SOC2", "PCI-DSS"],
+  "SuggestedAWSService": "EBS gp3",
+  "SuggestedStorageClass": "Standard",
+  "EstimatedMonthlyCost": 45.00,
+  "OptimizationRecommendations": ["Use S3 Intelligent Tiering", "Enable lifecycle policies"]
+}
+```
+
+#### 2.2.6 Individual Database Entity (Multi-Item Support)
+
+```json
+{
+  "PK": "ESTIMATION#est456",
+  "SK": "DATABASE#db001",
+  "GSI3PK": "DATABASE#db001",
+  "GSI3SK": "ESTIMATION#est456",
+  "EntityType": "DatabaseItem",
+  "DatabaseId": "db001",
+  "EstimationId": "est456",
+  "ClientId": "client789",
+  "DatabaseName": "Primary Application DB",
+  "DatabasePurpose": "OLTP",
+  "EngineType": "Aurora_MySQL",
+  "EngineVersion": "8.0.mysql_aurora.3.02.0",
+  "DatabaseSizeGB": 500,
+  "ExpectedGrowthRatePercent": 15,
+  "InstanceClass": "db.r6g.xlarge",
+  "CPUCores": 4,
+  "RAMGB": 32,
+  "StorageType": "Aurora",
+  "IOPSRequired": 3000,
+  "MultiAZRequired": true,
+  "ReadReplicasCount": 2,
+  "ReadReplicaRegions": ["us-west-2"],
+  "BackupRetentionDays": 7,
+  "BackupWindowPreferred": "03:00",
+  "MaintenanceWindowPreferred": "04:00",
+  "EncryptionAtRestRequired": true,
+  "EncryptionInTransitRequired": true,
+  "PerformanceInsightsRequired": true,
+  "MonitoringEnhancedRequired": true,
+  "ConnectionPoolingRequired": false,
+  "EstimatedMonthlyCost": 1800.00,
+  "OptimizationRecommendations": ["Consider Aurora Serverless v2", "Enable Performance Insights"]
+}
+```
+
+#### 2.2.7 Enhanced Network & Security Requirements Entity
+
+```json
+{
+  "PK": "ESTIMATION#est456",
+  "SK": "NETWORK_SECURITY",
+  "EntityType": "NetworkSecurityRequirements",
+  "EstimationId": "est456",
+  "ClientId": "client789",
+  "NetworkRequirements": {
+    "DataTransferOutGBMonthly": 1000,
+    "DataTransferInGBMonthly": 500,
+    "PeakBandwidthMbps": 2000,
+    "ConcurrentUsersExpected": 10000,
+    "GeographicDistribution": ["us-east-1", "us-west-2", "eu-west-1"],
+    "LoadBalancerCount": 2,
+    "LoadBalancerType": "ALB",
+    "SSLCertificateRequired": true,
+    "SSLCertificateType": "Wildcard",
+    "WAFRequired": true,
+    "DDoSProtectionRequired": true,
+    "CDNRequired": true,
+    "CDNCacheBehavior": "Cache_Static",
+    "EdgeLocationsRequired": ["us-east-1", "us-west-2", "eu-west-1"],
+    "APIGatewayRequired": true,
+    "APICallsMonthly": 1000000,
+    "VPNConnectionsRequired": 2,
+    "DirectConnectRequired": false,
+    "BandwidthDirectConnectMbps": 0
+  },
+  "SecurityRequirements": {
+    "ComplianceFrameworks": ["SOC2", "PCI-DSS", "GDPR"],
+    "DataClassification": "Confidential",
+    "AWSConfigRequired": true,
+    "CloudTrailRequired": true,
+    "CloudTrailDataEvents": true,
+    "GuardDutyRequired": true,
+    "SecurityHubRequired": true,
+    "InspectorRequired": false,
+    "MacieRequired": true,
+    "KMSRequired": true,
+    "SecretsManagerRequired": true,
+    "CertificateManagerRequired": true,
+    "IAMAccessAnalyzerRequired": true,
+    "VPCFlowLogsRequired": true,
+    "ShieldAdvancedRequired": true,
+    "FirewallManagerRequired": false,
+    "NetworkFirewallRequired": false,
+    "PenetrationTestingRequired": true,
+    "VulnerabilityScanningRequired": true,
+    "SecurityTrainingRequired": false,
+    "IncidentResponsePlanRequired": true
+  },
+  "EstimatedMonthlyCost": 800.00,
+  "OptimizationRecommendations": ["Consider CloudFront for global distribution", "Enable AWS Shield Advanced"]
+}
+```
+
+#### 2.2.8 Enhanced Cost Calculation Entity
 
 ```json
 {
@@ -333,6 +484,166 @@ The system uses DynamoDB as the primary database following NoSQL design patterns
   "PK": "ESTIMATION#est456",
   "SK": "DOCUMENT#doc123",
   "GSI1PK": "DOCUMENT#doc123",
+  "GSI1SK": "2024-01-15T11:00:00Z",
+  "EntityType": "Document",
+  "DocumentId": "doc123",
+  "EstimationId": "est456",
+  "DocumentType": "PDF_PROPOSAL",
+  "FileName": "ABC_Corporation_AWS_Proposal.pdf",
+  "S3Bucket": "aws-cost-estimation-documents",
+  "S3Key": "proposals/est456/ABC_Corporation_AWS_Proposal_20240115.pdf",
+  "FileSize": 2048576,
+  "GeneratedAt": "2024-01-15T11:00:00Z",
+  "GeneratedBy": "user123",
+  "Status": "COMPLETED",
+  "DownloadCount": 3,
+  "LastDownloadedAt": "2024-01-15T14:30:00Z",
+  "ExpiresAt": "2024-02-15T11:00:00Z",
+  "TTL": 1708002000
+}
+```
+
+### 2.3 New Supporting Tables for Enhanced Features
+
+#### 2.3.1 Validation Rules Entity
+
+```json
+{
+  "PK": "VALIDATION_RULES",
+  "SK": "FIELD#company_name",
+  "EntityType": "ValidationRule",
+  "FieldName": "company_name",
+  "ValidationType": "text",
+  "ValidationRule": "required|min:2|max:100",
+  "ErrorMessage": "Company name is required and must be 2-100 characters",
+  "RequiredField": true,
+  "DependentField": null,
+  "DependencyCondition": null
+}
+```
+
+#### 2.3.2 Dropdown Lists Entity
+
+```json
+{
+  "PK": "DROPDOWN_LISTS",
+  "SK": "LIST#industry_types",
+  "EntityType": "DropdownList",
+  "ListName": "industry_types",
+  "ListValues": ["E-commerce", "Healthcare", "Financial Services", "Manufacturing", "Technology", "Education", "Government", "Media"],
+  "DefaultValue": "Technology",
+  "Description": "Available industry types for client classification"
+}
+```
+
+#### 2.3.3 Service Mapping Entity
+
+```json
+{
+  "PK": "SERVICE_MAPPING",
+  "SK": "COMPUTE#4_cores_16_gb",
+  "EntityType": "ServiceMapping",
+  "RequirementType": "compute",
+  "RequirementValue": "4_cores_16_gb",
+  "SuggestedAWSService": "EC2",
+  "SuggestedInstanceType": "t3.xlarge",
+  "AlternativeServices": ["t3.large", "m5.xlarge", "c5.xlarge"],
+  "CostFactor": 0.1664,
+  "OptimizationNotes": "Consider Reserved Instances for 40% savings"
+}
+```
+
+#### 2.3.4 Cost Optimization Tips Entity
+
+```json
+{
+  "PK": "OPTIMIZATION_TIPS",
+  "SK": "TIP#reserved_instances",
+  "EntityType": "OptimizationTip",
+  "TipId": "reserved_instances",
+  "Category": "compute",
+  "Title": "Reserved Instances Savings",
+  "Description": "Save up to 72% with Reserved Instances for predictable workloads",
+  "ApplicableServices": ["EC2", "RDS", "ElastiCache"],
+  "PotentialSavingsPercent": 40,
+  "ImplementationComplexity": "Low",
+  "RecommendationPriority": "High"
+}
+```
+
+## 3. Enhanced Access Patterns
+
+### 3.1 Primary Access Patterns
+1. **Get Estimation with All Components:** PK=ESTIMATION#est456, SK begins_with various prefixes
+2. **Get User Estimations:** GSI1PK=USER#user123, GSI1SK begins_with ESTIMATION#
+3. **Get Estimations by Status:** GSI2PK=STATUS#ACTIVE, GSI2SK begins_with ESTIMATION#
+4. **Get Components by Type:** GSI3PK=SERVER#srv001, GSI3SK=ESTIMATION#est456
+5. **Get Validation Rules:** PK=VALIDATION_RULES, SK begins_with FIELD#
+6. **Get Dropdown Lists:** PK=DROPDOWN_LISTS, SK begins_with LIST#
+7. **Get Service Mappings:** PK=SERVICE_MAPPING, SK begins_with requirement type
+8. **Get Optimization Tips:** PK=OPTIMIZATION_TIPS, SK begins_with TIP#
+
+### 3.2 Query Examples
+
+```javascript
+// Get all servers for an estimation
+const params = {
+  TableName: 'aws-cost-platform-enhanced',
+  KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+  ExpressionAttributeValues: {
+    ':pk': 'ESTIMATION#est456',
+    ':sk': 'SERVER#'
+  }
+};
+
+// Get validation rules for form generation
+const validationParams = {
+  TableName: 'aws-cost-platform-enhanced',
+  KeyConditionExpression: 'PK = :pk',
+  ExpressionAttributeValues: {
+    ':pk': 'VALIDATION_RULES'
+  }
+};
+
+// Get service recommendations
+const serviceParams = {
+  TableName: 'aws-cost-platform-enhanced',
+  KeyConditionExpression: 'PK = :pk AND SK = :sk',
+  ExpressionAttributeValues: {
+    ':pk': 'SERVICE_MAPPING',
+    ':sk': 'COMPUTE#4_cores_16_gb'
+  }
+};
+```
+
+## 4. Migration Strategy
+
+### 4.1 Data Migration Plan
+1. **Create new enhanced table** alongside existing table
+2. **Migrate existing data** with field mapping and enhancement
+3. **Update Lambda functions** to use new schema
+4. **Test thoroughly** with both old and new data
+5. **Switch traffic** to new table
+6. **Decommission old table** after validation
+
+### 4.2 Backward Compatibility
+- **API versioning** to support both old and new formats
+- **Data transformation layer** for legacy data access
+- **Gradual migration** of existing estimations
+
+## 5. Performance Considerations
+
+### 5.1 Optimization Strategies
+- **Efficient key design** for even partition distribution
+- **Appropriate GSI usage** for query patterns
+- **Item size optimization** (max 400KB per item)
+- **Batch operations** for multi-item reads/writes
+
+### 5.2 Cost Optimization
+- **On-demand billing** for variable workloads
+- **TTL for temporary data** (documents, cache)
+- **Compression** for large text fields
+- **Efficient projection** in GSIs: "DOCUMENT#doc123",
   "GSI1SK": "2024-01-15T11:00:00Z",
   "EntityType": "Document",
   "DocumentId": "doc123",

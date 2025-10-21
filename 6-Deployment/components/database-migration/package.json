@@ -1,0 +1,26 @@
+{
+  "name": "aws-cost-platform-database-migration",
+  "version": "2.0.0",
+  "description": "Enhanced DynamoDB schema migration for AWS Cost Estimation Platform",
+  "main": "create-enhanced-tables.js",
+  "scripts": {
+    "create-tables": "node create-enhanced-tables.js",
+    "populate-data": "node populate-validation-data.js",
+    "migrate-data": "node migrate-existing-data.js",
+    "deploy": "./deploy-database-migration.sh",
+    "deploy-dev": "./deploy-database-migration.sh dev",
+    "deploy-staging": "./deploy-database-migration.sh staging",
+    "deploy-prod": "./deploy-database-migration.sh prod"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1692.0"
+  },
+  "keywords": [
+    "aws",
+    "dynamodb",
+    "migration",
+    "cost-estimation"
+  ],
+  "author": "Sagesoft Solutions",
+  "license": "MIT"
+}
